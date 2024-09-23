@@ -13,7 +13,6 @@ CREATE TABLE "public"."coach_info" (
     CONSTRAINT "coach_info_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
 
-TRUNCATE "coach_info";
 
 DELIMITER ;;
 
@@ -36,7 +35,6 @@ CREATE TABLE "public"."coaches_ratings" (
     CONSTRAINT "coaches_ratings_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
 
-TRUNCATE "coaches_ratings";
 
 DROP TABLE IF EXISTS "diets";
 DROP SEQUENCE IF EXISTS diets_id_seq;
@@ -49,7 +47,6 @@ CREATE TABLE "public"."diets" (
     CONSTRAINT "diets_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
 
-TRUNCATE "diets";
 
 DROP TABLE IF EXISTS "users";
 DROP SEQUENCE IF EXISTS users_id_seq;
@@ -66,9 +63,6 @@ CREATE TABLE "public"."users" (
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
 
-TRUNCATE "users";
-INSERT INTO "users" ("id", "email", "phone", "registered_time", "access") VALUES
-(1,	'ea_pain@yahoo.com',	'1234567890',	'2024-09-21 13:30:59.496231',	0);
 
 DROP TABLE IF EXISTS "users_coach";
 DROP SEQUENCE IF EXISTS users_coach_id_seq;
@@ -82,7 +76,6 @@ CREATE TABLE "public"."users_coach" (
     CONSTRAINT "users_coach_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
 
-TRUNCATE "users_coach";
 
 DROP TABLE IF EXISTS "users_diets";
 DROP SEQUENCE IF EXISTS users_diets_id_seq;
@@ -97,7 +90,19 @@ CREATE TABLE "public"."users_diets" (
     CONSTRAINT "users_diets_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
 
-TRUNCATE "users_diets";
+
+DROP TABLE IF EXISTS "users_login";
+DROP SEQUENCE IF EXISTS users_login_id_seq;
+CREATE SEQUENCE users_login_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1;
+
+CREATE TABLE "public"."users_login" (
+    "id" integer DEFAULT nextval('users_login_id_seq') NOT NULL,
+    "user_id" integer NOT NULL,
+    "loggedin_at" timestamp DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "users_login_pkey" PRIMARY KEY ("id")
+) WITH (oids = false);
+
+TRUNCATE "users_login";
 
 DROP TABLE IF EXISTS "users_medical_records";
 DROP SEQUENCE IF EXISTS users_medical_records_id_seq;
@@ -112,7 +117,6 @@ CREATE TABLE "public"."users_medical_records" (
     CONSTRAINT "users_medical_records_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
 
-TRUNCATE "users_medical_records";
 
 DROP TABLE IF EXISTS "users_pics";
 DROP SEQUENCE IF EXISTS users_pics_id_seq;
@@ -126,7 +130,6 @@ CREATE TABLE "public"."users_pics" (
     CONSTRAINT "users_pics_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
 
-TRUNCATE "users_pics";
 
 DELIMITER ;;
 
@@ -149,7 +152,6 @@ CREATE TABLE "public"."users_plans" (
     CONSTRAINT "users_plans_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
 
-TRUNCATE "users_plans";
 
 DELIMITER ;;
 
@@ -174,7 +176,6 @@ CREATE TABLE "public"."users_workout_info" (
     CONSTRAINT "users_workout_info_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
 
-TRUNCATE "users_workout_info";
 
 DELIMITER ;;
 
@@ -196,7 +197,6 @@ CREATE TABLE "public"."wiki" (
     CONSTRAINT "wiki_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
 
-TRUNCATE "wiki";
 
 DELIMITER ;;
 
@@ -215,6 +215,8 @@ ALTER TABLE ONLY "public"."users_coach" ADD CONSTRAINT "users_coach_user_id_fkey
 ALTER TABLE ONLY "public"."users_diets" ADD CONSTRAINT "users_diets_coach_id_fkey" FOREIGN KEY (coach_id) REFERENCES users(id) ON DELETE CASCADE NOT DEFERRABLE;
 ALTER TABLE ONLY "public"."users_diets" ADD CONSTRAINT "users_diets_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE NOT DEFERRABLE;
 
+ALTER TABLE ONLY "public"."users_login" ADD CONSTRAINT "users_login_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE NOT DEFERRABLE;
+
 ALTER TABLE ONLY "public"."users_medical_records" ADD CONSTRAINT "users_medical_records_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE NOT DEFERRABLE;
 
 ALTER TABLE ONLY "public"."users_pics" ADD CONSTRAINT "users_pics_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE NOT DEFERRABLE;
@@ -226,4 +228,4 @@ ALTER TABLE ONLY "public"."users_workout_info" ADD CONSTRAINT "users_workout_inf
 
 ALTER TABLE ONLY "public"."wiki" ADD CONSTRAINT "wiki_plan_id_fkey" FOREIGN KEY (plan_id) REFERENCES users_plans(id) ON DELETE CASCADE NOT DEFERRABLE;
 
--- 2024-09-23 09:20:03.950714+00
+-- 2024-09-23 09:36:42.306471+00
