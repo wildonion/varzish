@@ -389,17 +389,23 @@ app.get('/user/coaches', passport.authenticate('jwt', { session: false }), ensur
 });
 
 // Update Workout Info
+// API to update or insert workout information
 app.put('/user/update-workout-info', passport.authenticate('jwt', { session: false }), ensureUserAccess, async (req, res) => {
   const { weight, age, height, sex, goal, level } = req.body;
 
   try {
     const client = await pool.connect();
-    await client.query(
-      'UPDATE users_workout_info SET weight = $1, age = $2, height = $3, sex = $4, goal = $5, level = $6, updated_at = CURRENT_TIMESTAMP WHERE user_id = $7',
-      [weight, age, height, sex, goal, level, req.user.id]
-    );
-    client.release();
+    
+    // Use INSERT ON CONFLICT to either insert or update the user's workout info
+    await client.query(`
+      INSERT INTO users_workout_info (user_id, weight, age, height, sex, goal, level, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
+      ON CONFLICT (user_id)
+      DO UPDATE SET weight = EXCLUDED.weight, age = EXCLUDED.age, height = EXCLUDED.height, sex = EXCLUDED.sex, goal = EXCLUDED.goal, level = EXCLUDED.level, updated_at = CURRENT_TIMESTAMP
+    `, [req.user.id, weight, age, height, sex, goal, level]);
 
+    client.release();
+    
     return res.json({ message: 'Workout information updated successfully' });
   } catch (err) {
     console.error(err);
@@ -407,18 +413,25 @@ app.put('/user/update-workout-info', passport.authenticate('jwt', { session: fal
   }
 });
 
+
 // Update Medical Records
+// API to update or insert medical records
 app.put('/user/update-medical-record', passport.authenticate('jwt', { session: false }), ensureUserAccess, async (req, res) => {
   const { content } = req.body;
 
   try {
     const client = await pool.connect();
-    await client.query(
-      'UPDATE users_medical_records SET content = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2',
-      [content, req.user.id]
-    );
-    client.release();
+    
+    // Use INSERT ON CONFLICT to either insert or update the user's medical record
+    await client.query(`
+      INSERT INTO users_medical_records (user_id, content, updated_at)
+      VALUES ($1, $2, CURRENT_TIMESTAMP)
+      ON CONFLICT (user_id)
+      DO UPDATE SET content = EXCLUDED.content, updated_at = CURRENT_TIMESTAMP
+    `, [req.user.id, content]);
 
+    client.release();
+    
     return res.json({ message: 'Medical record updated successfully' });
   } catch (err) {
     console.error(err);
@@ -426,7 +439,6 @@ app.put('/user/update-medical-record', passport.authenticate('jwt', { session: f
   }
 });
 
-// Login and Register (combined)
 // Login and Register (combined)
 app.post('/login', async (req, res) => {
     const { email, phone } = req.body;
@@ -636,26 +648,48 @@ app.get('/user/wikis/:planId', passport.authenticate('jwt', { session: false }),
 });
 
 // Check Token API
-// Check Token API
+// Check Token API - Fetch user info from users, users_workout_info, and users_medical_records
 app.get('/check-token', passport.authenticate('jwt', { session: false }), async (req, res) => {
-    try {
-      const client = await pool.connect();
-      
-      // Check if the user is logged in (loggedin_at != 0)
-      const result = await client.query('SELECT loggedin_at FROM users_login WHERE user_id = $1', [req.user.id]);
-      
+  try {
+    const client = await pool.connect();
+    
+    // Check if the user is logged in (loggedin_at != 0)
+    const loginResult = await client.query('SELECT loggedin_at FROM users_login WHERE user_id = $1', [req.user.id]);
+    
+    if (loginResult.rows.length === 0 || loginResult.rows[0].loggedin_at.getTime() === 0) {
       client.release();
-      
-      if (result.rows.length === 0 || result.rows[0].loggedin_at.getTime() === 0) {
-        return res.status(401).json({ message: 'Please login.' });
-      }
-      
-      return res.json({ message: 'Token is valid', user: req.user });
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ error: 'Token validation failed.' });
+      return res.status(401).json({ message: 'Please login.' });
     }
-  });
+    
+    // Fetch user info from users table
+    const userInfoResult = await client.query('SELECT id, email, phone, access FROM users WHERE id = $1', [req.user.id]);
+    const userInfo = userInfoResult.rows[0];
+    
+    // Fetch workout info from users_workout_info table
+    const workoutInfoResult = await client.query('SELECT weight, age, height, sex, goal, level FROM users_workout_info WHERE user_id = $1', [req.user.id]);
+    const workoutInfo = workoutInfoResult.rows[0] || {};
+
+    // Fetch medical info from users_medical_records table
+    const medicalInfoResult = await client.query('SELECT content FROM users_medical_records WHERE user_id = $1', [req.user.id]);
+    const medicalInfo = medicalInfoResult.rows[0] || {};
+    
+    client.release();
+    
+    // Return combined user information
+    return res.json({
+      message: 'Token is valid',
+      user: {
+        ...userInfo,
+        workout_info: workoutInfo,
+        medical_info: medicalInfo
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Token validation failed.' });
+  }
+});
+
   
 
 // Protected route (requires authentication)

@@ -1,737 +1,813 @@
 {
-  "info": {
-    "name": "Varzik Complete API Collection",
-    "description": "Postman collection for all Varzik APIs",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-  },
-  "item": [
-    {
-      "name": "Authentication",
-      "item": [
-        {
-          "name": "Login / Register",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"phone\": \"1234567890\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/login",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "login"
-              ]
-            }
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "if (pm.response.code === 200 || pm.response.code === 201) {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.environment.set(\"token\", jsonData.token);",
-                  "    pm.environment.set(\"userId\", jsonData.user?.id || \"\");",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ]
-        },
-        {
-          "name": "Logout",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/logout",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "logout"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Check Token",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/check-token",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "check-token"
-              ]
-            }
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "User APIs",
-      "item": [
-        {
-          "name": "Upload Profile Picture (User)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "profile_pic",
-                  "type": "file",
-                  "src": ""
-                }
-              ]
-            },
-            "url": {
-              "raw": "{{base_url}}/user/upload-profile-pic",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "user",
-                "upload-profile-pic"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Rate a Coach",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"stars\": 4\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/user/rate-coach/:coachId",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "user",
-                "rate-coach",
-                ":coachId"
-              ],
-              "variable": [
-                {
-                  "key": "coachId",
-                  "value": "1"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Coaches Above 3.5 Rating",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/user/coaches-above-3.5",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "user",
-                "coaches-above-3.5"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get All User Plans",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/user/plans",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "user",
-                "plans"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get All User Diets",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/user/diets",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "user",
-                "diets"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get All User Coaches",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/user/coaches",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "user",
-                "coaches"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Update Workout Info",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"weight\": 70,\n  \"age\": 25,\n  \"height\": 175,\n  \"sex\": \"male\",\n  \"goal\": \"build muscle\",\n  \"level\": \"intermediate\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/user/update-workout-info",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "user",
-                "update-workout-info"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Update Medical Record",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"content\": \"No known allergies.\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/user/update-medical-record",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "user",
-                "update-medical-record"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Open Wikis",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/user/wikis/",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "user",
-                "wikis",
-                ""
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Update Progress",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/user/update-progress",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "user",
-                "update-progress"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Wikis for Specific Plan",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/user/wikis/:planId",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "user",
-                "wikis",
-                ":planId"
-              ],
-              "variable": [
-                {
-                  "key": "planId",
-                  "value": "1"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get All Diets",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/user/get/diets",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "user",
-                "get",
-                "diets"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Choose a Diet",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/user/choose-diet/:dietId",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "user",
-                "choose-diet",
-                ":dietId"
-              ],
-              "variable": [
-                {
-                  "key": "dietId",
-                  "value": "1"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Active Coaches",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/user/active-coaches",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "user",
-                "active-coaches"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Coach Info",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/user/coach-info/:coachId",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "user",
-                "coach-info",
-                ":coachId"
-              ],
-              "variable": [
-                {
-                  "key": "coachId",
-                  "value": "1"
-                }
-              ]
-            }
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Coach APIs",
-      "item": [
-        {
-          "name": "Get My Ratings",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/coach/my-ratings",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "coach",
-                "my-ratings"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Upload Profile Picture (Coach)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "profile_pic",
-                  "type": "file",
-                  "src": ""
-                }
-              ]
-            },
-            "url": {
-              "raw": "{{base_url}}/coach/upload-profile-pic",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "coach",
-                "upload-profile-pic"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Edit User Plan",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"movements\": \"Updated movements list\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/coach/edit-user-plan/:planId",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "coach",
-                "edit-user-plan",
-                ":planId"
-              ],
-              "variable": [
-                {
-                  "key": "planId",
-                  "value": "1"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Active Students",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/coach/active-students",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "coach",
-                "active-students"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Update Coach Info",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"info\": \"Updated coach information\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/coach/update-info",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "coach",
-                "update-info"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get User Info",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/coach/user-info/:userId",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "coach",
-                "user-info",
-                ":userId"
-              ],
-              "variable": [
-                {
-                  "key": "userId",
-                  "value": "1"
-                }
-              ]
-            }
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Miscellaneous",
-      "item": [
-        {
-          "name": "Protected Route",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/protected",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "protected"
-              ]
-            }
-          },
-          "response": []
-        }
-      ]
-    }
-  ],
-  "variable": [
-    {
-      "key": "base_url",
-      "value": "http://localhost:3000"
-    },
-    {
-      "key": "token",
-      "value": ""
-    },
-    {
-      "key": "userId",
-      "value": ""
-    }
-  ]
+	"info": {
+		"_postman_id": "75646fff-1ec9-486c-a4d7-3b084e5c96f5",
+		"name": "Varzik Complete API Collection",
+		"description": "Postman collection for all Varzik APIs",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "22927035",
+		"_collection_link": "https://dewoloper.postman.co/workspace/dewo~9f34982c-dde5-4f77-9d5d-46872ed07d4a/collection/22927035-75646fff-1ec9-486c-a4d7-3b084e5c96f5?action=share&source=collection_link&creator=22927035"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login / Register",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200 || pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.environment.set(\"token\", jsonData.token);",
+									"    pm.environment.set(\"userId\", jsonData.user?.id || \"\");",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"ea_pain@yahoo.com\",\n  \"phone\": \"1234567890\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiYWNjZXNzIjowLCJpYXQiOjE3MjcwOTA3NDYsImV4cCI6MTcyOTY4Mjc0Nn0.AvZTAI0zudJAzkIuua6qgbWq4TwZs_bf-QM6FIDcIAw",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/logout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"logout"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Check Token",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiYWNjZXNzIjowLCJpYXQiOjE3MjcwOTIyMTEsImV4cCI6MTcyOTY4NDIxMX0.MuB8DP7ff2cXq7VhsnQUPIbuxMQxoCelDaO3-AqET6I",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/check-token",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"check-token"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "User APIs",
+			"item": [
+				{
+					"name": "Upload Profile Picture (User)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "profile_pic",
+									"value": "",
+									"type": "file"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/user/upload-profile-pic",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user",
+								"upload-profile-pic"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Rate a Coach",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"stars\": 4\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/user/rate-coach/:coachId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user",
+								"rate-coach",
+								":coachId"
+							],
+							"variable": [
+								{
+									"key": "coachId",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Coaches Above 3.5 Rating",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/user/coaches-above-3.5",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user",
+								"coaches-above-3.5"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All User Plans",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/user/plans",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user",
+								"plans"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All User Diets",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/user/diets",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user",
+								"diets"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All User Coaches",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/user/coaches",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user",
+								"coaches"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Workout Info",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiYWNjZXNzIjowLCJpYXQiOjE3MjcwOTA4NzcsImV4cCI6MTcyOTY4Mjg3N30.2n_sddKgIkdOqYC2kbGGkDEXrzz45Ybs3X_I8800gd0",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"weight\": 70,\n  \"age\": 25,\n  \"height\": 175,\n  \"sex\": \"male\",\n  \"goal\": \"build muscle\",\n  \"level\": \"intermediate\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/user/update-workout-info",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user",
+								"update-workout-info"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Medical Record",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiYWNjZXNzIjowLCJpYXQiOjE3MjcwOTA4NzcsImV4cCI6MTcyOTY4Mjg3N30.2n_sddKgIkdOqYC2kbGGkDEXrzz45Ybs3X_I8800gd0",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"content\": \"No known allergies.\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/user/update-medical-record",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user",
+								"update-medical-record"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Open Wikis",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/user/wikis/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user",
+								"wikis",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Progress",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/user/update-progress",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user",
+								"update-progress"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Wikis for Specific Plan",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiYWNjZXNzIjowLCJpYXQiOjE3MjcwOTA4NzcsImV4cCI6MTcyOTY4Mjg3N30.2n_sddKgIkdOqYC2kbGGkDEXrzz45Ybs3X_I8800gd0",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/user/wikis/1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user",
+								"wikis",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Diets",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiYWNjZXNzIjowLCJpYXQiOjE3MjcwOTA4NzcsImV4cCI6MTcyOTY4Mjg3N30.2n_sddKgIkdOqYC2kbGGkDEXrzz45Ybs3X_I8800gd0",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/user/get/diets",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user",
+								"get",
+								"diets"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Choose a Diet",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/user/choose-diet/:dietId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user",
+								"choose-diet",
+								":dietId"
+							],
+							"variable": [
+								{
+									"key": "dietId",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Active Coaches",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiYWNjZXNzIjowLCJpYXQiOjE3MjcwOTE5MDMsImV4cCI6MTcyOTY4MzkwM30.1BacwKA1S4DXomvbBgybsOnNxP4Od3_AxWtx2ucuF6M",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/user/active-coaches",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user",
+								"active-coaches"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Coach Info",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiYWNjZXNzIjowLCJpYXQiOjE3MjcwOTE5MDMsImV4cCI6MTcyOTY4MzkwM30.1BacwKA1S4DXomvbBgybsOnNxP4Od3_AxWtx2ucuF6M",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/user/coach-info/2",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user",
+								"coach-info",
+								"2"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Coach APIs",
+			"item": [
+				{
+					"name": "Get My Ratings",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/coach/my-ratings",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"coach",
+								"my-ratings"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Upload Profile Picture (Coach)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "profile_pic",
+									"value": "",
+									"type": "file"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/coach/upload-profile-pic",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"coach",
+								"upload-profile-pic"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Edit User Plan",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"movements\": \"Updated movements list\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/coach/edit-user-plan/:planId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"coach",
+								"edit-user-plan",
+								":planId"
+							],
+							"variable": [
+								{
+									"key": "planId",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Active Students",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/coach/active-students",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"coach",
+								"active-students"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Coach Info",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiYWNjZXNzIjoxLCJpYXQiOjE3MjcwOTE5NTEsImV4cCI6MTcyOTY4Mzk1MX0.QWcAeUm960pm89qov2_eKzZNVyM--WK7ItXWnKX4YYI",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"info\": {\"grade\": \"Updated coach information\"}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/coach/update-info",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"coach",
+								"update-info"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Info",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiYWNjZXNzIjoxLCJpYXQiOjE3MjcwOTIxMTUsImV4cCI6MTcyOTY4NDExNX0.oz_CGzMnIJFKeXadM6ViDXx_Pfq2F8ouGIKUhZ39vbY",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/coach/user-info/1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"coach",
+								"user-info",
+								"1"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Miscellaneous",
+			"item": [
+				{
+					"name": "Protected Route",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/protected",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"protected"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3000"
+		}
+	]
 }
