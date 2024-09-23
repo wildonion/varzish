@@ -2,7 +2,7 @@
 
 DROP TABLE IF EXISTS "coach_info";
 DROP SEQUENCE IF EXISTS coach_info_id_seq;
-CREATE SEQUENCE coach_info_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1;
+CREATE SEQUENCE coach_info_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 1 CACHE 1;
 
 CREATE TABLE "public"."coach_info" (
     "id" integer DEFAULT nextval('coach_info_id_seq') NOT NULL,
@@ -10,7 +10,8 @@ CREATE TABLE "public"."coach_info" (
     "info" json NOT NULL,
     "updated_at" timestamp DEFAULT CURRENT_TIMESTAMP,
     "status" character varying(10) DEFAULT 'active',
-    CONSTRAINT "coach_info_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "coach_info_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "unique_cinfo_user_id" UNIQUE ("coach_id")
 ) WITH (oids = false);
 
 
@@ -50,7 +51,7 @@ CREATE TABLE "public"."diets" (
 
 DROP TABLE IF EXISTS "users";
 DROP SEQUENCE IF EXISTS users_id_seq;
-CREATE SEQUENCE users_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 1 CACHE 1;
+CREATE SEQUENCE users_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 2 CACHE 1;
 
 CREATE TABLE "public"."users" (
     "id" integer DEFAULT nextval('users_id_seq') NOT NULL,
@@ -63,6 +64,10 @@ CREATE TABLE "public"."users" (
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
 
+TRUNCATE "users";
+INSERT INTO "users" ("id", "email", "phone", "registered_time", "access") VALUES
+(1,	'ea_pain@yahoo.com',	'1234567890',	'2024-09-21 13:30:59.496231',	0),
+(2,	'abarmardeatashyne@gmail.com',	'09211686115',	'2024-09-23 11:44:36.406105',	1);
 
 DROP TABLE IF EXISTS "users_coach";
 DROP SEQUENCE IF EXISTS users_coach_id_seq;
@@ -93,20 +98,20 @@ CREATE TABLE "public"."users_diets" (
 
 DROP TABLE IF EXISTS "users_login";
 DROP SEQUENCE IF EXISTS users_login_id_seq;
-CREATE SEQUENCE users_login_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1;
+CREATE SEQUENCE users_login_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 11 CACHE 1;
 
 CREATE TABLE "public"."users_login" (
     "id" integer DEFAULT nextval('users_login_id_seq') NOT NULL,
     "user_id" integer NOT NULL,
     "loggedin_at" timestamp DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "unique_user_id" UNIQUE ("user_id"),
     CONSTRAINT "users_login_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
 
-TRUNCATE "users_login";
 
 DROP TABLE IF EXISTS "users_medical_records";
 DROP SEQUENCE IF EXISTS users_medical_records_id_seq;
-CREATE SEQUENCE users_medical_records_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1;
+CREATE SEQUENCE users_medical_records_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 1 CACHE 1;
 
 CREATE TABLE "public"."users_medical_records" (
     "id" integer DEFAULT nextval('users_medical_records_id_seq') NOT NULL,
@@ -114,6 +119,7 @@ CREATE TABLE "public"."users_medical_records" (
     "content" text NOT NULL,
     "created_at" timestamp DEFAULT CURRENT_TIMESTAMP,
     "updated_at" timestamp DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "unique_med_user_id" UNIQUE ("user_id"),
     CONSTRAINT "users_medical_records_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
 
@@ -161,7 +167,7 @@ DELIMITER ;
 
 DROP TABLE IF EXISTS "users_workout_info";
 DROP SEQUENCE IF EXISTS users_workout_info_id_seq;
-CREATE SEQUENCE users_workout_info_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1;
+CREATE SEQUENCE users_workout_info_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 1 CACHE 1;
 
 CREATE TABLE "public"."users_workout_info" (
     "id" integer DEFAULT nextval('users_workout_info_id_seq') NOT NULL,
@@ -173,6 +179,7 @@ CREATE TABLE "public"."users_workout_info" (
     "goal" character varying(255) NOT NULL,
     "level" character varying(255) NOT NULL,
     "updated_at" timestamp DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "unique_work_user_id" UNIQUE ("user_id"),
     CONSTRAINT "users_workout_info_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
 
@@ -228,4 +235,4 @@ ALTER TABLE ONLY "public"."users_workout_info" ADD CONSTRAINT "users_workout_inf
 
 ALTER TABLE ONLY "public"."wiki" ADD CONSTRAINT "wiki_plan_id_fkey" FOREIGN KEY (plan_id) REFERENCES users_plans(id) ON DELETE CASCADE NOT DEFERRABLE;
 
--- 2024-09-23 09:36:42.306471+00
+-- 2024-09-23 12:03:08.650341+00
