@@ -7,11 +7,41 @@ const { Pool } = require('pg');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const {Smsir} = require('./smsir')
+const redis = require('redis'); // Import Redis
+
+
+// Initialize Redis client
+const redisClient = redis.createClient({
+  url: 'redis://default:geDteDd0Ltg2135FJYQ6rjNYHYkGQa70@localhost:6379' // Replace with your Redis connection details
+});
+
+// Connect the Redis client
+(async () => {
+  try {
+    await redisClient.connect();
+    console.log('Connected to Redis');
+  } catch (err) {
+    console.error('Redis connection error:', err);
+  }
+})();
+
+// Handle Redis connection errors
+redisClient.on('error', (err) => {
+  console.error('Redis error:', err);
+});
+
+// Handle Redis disconnection
+redisClient.on('end', () => {
+  console.log('Disconnected from Redis');
+});
+
 
 // Configuring JWT Strategy for Passport
 const ExtractJwt = passportJWT.ExtractJwt;
 const JwtStrategy = passportJWT.Strategy;
 const jwtSecret = 'geDteDd0Ltg2135FJYQ6rjNYHYkGQa70'; // Secret for JWT signing
+const smstoken = "";
 
 // Initialize Express app
 const app = express();
@@ -27,35 +57,82 @@ const pool = new Pool({
 });
 
 
-// Configure multer for file uploads
+const smsir = new Smsir(smstoken, 30007732905399)
+
+
+
+const generateOTP = () => {
+  return Math.floor(1000 + Math.random() * 9000); // Generates a random number between 1000 and 9999
+};
+
+// Configure multer for image uploads and append timestamp to filename
 const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const uploadDir = 'uploads/';
-        if (!fs.existsSync(uploadDir)){
-            fs.mkdirSync(uploadDir);
-        }
-        cb(null, uploadDir); // Save files to the 'uploads/' directory
-    },
-    filename: function (req, file, cb) {
-        const ext = path.extname(file.originalname); // Get the file extension
-        cb(null, `${req.user.id}-${Date.now()}${ext}`); // File name: userId-timestamp.extension
-    }
+  destination: function (req, file, cb) {
+      const uploadDir = 'uploads/images/';
+      if (!fs.existsSync(uploadDir)){
+          fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir); // Save files to the 'uploads/images/' directory
+  },
+  filename: function (req, file, cb) {
+      const ext = path.extname(file.originalname); // Get the file extension (e.g., .jpg, .png)
+      const baseName = path.basename(file.originalname, ext); // Get the base name without extension
+      const timestamp = Date.now(); // Get the current timestamp
+      cb(null, `${baseName}-${timestamp}${ext}`); // File name: originalName-timestamp.extension
+  }
 });
 
 const upload = multer({
-    storage: storage,
-    limits: { fileSize: 10 * 1024 * 1024 }, // Limit to 10MB
-    fileFilter: function (req, file, cb) {
-        const filetypes = /jpeg|jpg|png/;
-        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-        const mimetype = filetypes.test(file.mimetype);
-        
-        if (mimetype && extname) {
-            return cb(null, true);
-        } else {
-            cb(new Error('Only images (jpeg, jpg, png) are allowed!'));
-        }
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // Limit to 10MB for images
+  fileFilter: function (req, file, cb) {
+      const filetypes = /jpeg|jpg|png/; // Allow only jpeg, jpg, and png
+      const extname = filetypes.test(path.extname(file.originalname).toLowerCase()); // Check extension
+      const mimetype = filetypes.test(file.mimetype); // Check mimetype
+      
+      if (mimetype && extname) {
+          return cb(null, true); // If valid, accept the file
+      } else {
+          cb(new Error('Only images (jpeg, jpg, png) are allowed!')); // Reject invalid files
+      }
+  }
+});
+
+
+
+// Configure multer for video uploads (for wikis)
+// Configure multer for video uploads (for wikis) and append timestamp to filename
+const videoStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = 'uploads/videos/';
+    if (!fs.existsSync(uploadDir)){
+        fs.mkdirSync(uploadDir, { recursive: true });
     }
+    cb(null, uploadDir); // Save videos to the 'uploads/videos/' directory
+  },
+
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname); // Get the file extension
+    const baseName = path.basename(file.originalname, ext); // Get the base name without extension
+    const timestamp = Date.now(); // Get the current timestamp
+    cb(null, `${baseName}-${timestamp}${ext}`); // File name: originalName-timestamp.extension
+  }
+});
+
+const uploadVideo = multer({
+  storage: videoStorage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // Limit to 50MB for videos
+  fileFilter: function (req, file, cb) {
+    const filetypes = /mp4|mov|avi/;
+    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = filetypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only videos (mp4, mov, avi) are allowed!'));
+    }
+  }
 });
 
 
@@ -101,6 +178,109 @@ function ensureCoachAccess(req, res, next) {
     }
     next();
   }
+
+  function ensureAdminAccess(req, res, next) {
+    if (req.user.access !== 2) {
+      return res.status(403).json({ message: 'Access denied. You must be an admin.' });
+    }
+    next();
+  }
+
+// API to create a new wiki (admin only)
+// API to create a new wiki (admin only)
+app.post('/admin/create-wiki', 
+  passport.authenticate('jwt', { session: false }), 
+  ensureAdminAccess, 
+  uploadVideo.single('video'), // Handling single video upload with field name 'video'
+  async (req, res) => {
+
+    const { title, plan_id } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'No video file uploaded' });
+    }
+
+    // The filename already includes the timestamp
+    const videoUrl = `/uploads/videos/${req.file.filename}`;
+    try {
+      const client = await pool.connect();
+      await client.query(
+        'INSERT INTO wiki (plan_id, video_url, title, created_at, updated_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
+        [plan_id || 0, videoUrl, title]
+      );
+      client.release();
+
+      return res.status(201).json({ message: 'Wiki created successfully', video_url: videoUrl });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Failed to create wiki' });
+    }
+  }
+
+);
+
+// API to toggle coach status (admin only)
+app.put('/admin/toggle-coach-status/:coachId', 
+  passport.authenticate('jwt', { session: false }), 
+  ensureAdminAccess, // Ensure the user is an admin
+  async (req, res) => {
+    const { coachId } = req.params;
+
+    try {
+      const client = await pool.connect();
+      
+      // Fetch the current status of the coach
+      const coachResult = await client.query('SELECT status FROM coach_info WHERE coach_id = $1', [coachId]);
+
+      if (coachResult.rows.length === 0) {
+        client.release();
+        return res.status(404).json({ message: 'Coach not found' });
+      }
+
+      // Get the current status of the coach
+      const currentStatus = coachResult.rows[0].status;
+      
+      // Determine the new status: toggle between 'active' and 'inactive'
+      const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+
+      // Update the status in the database
+      await client.query('UPDATE coach_info SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE coach_id = $2', [newStatus, coachId]);
+
+      client.release();
+
+      return res.json({ message: `Coach status updated to ${newStatus}` });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Failed to update coach status' });
+    }
+  }
+);
+
+
+// API to create a new diet (admin only)
+app.post('/admin/create-diet', passport.authenticate('jwt', { session: false }), ensureAdminAccess, async (req, res) => {
+  const { diet_name, content } = req.body;
+
+  if (!diet_name || !content) {
+    return res.status(400).json({ message: 'Diet name and content are required.' });
+  }
+
+  try {
+    const client = await pool.connect();
+    await client.query(
+      'INSERT INTO diets (diet_name, content) VALUES ($1, $2)',
+      [diet_name, content]
+    );
+    client.release();
+
+    return res.status(201).json({ message: 'Diet created successfully' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to create diet' });
+  }
+});
+
+
 
   // API for users to upload profile picture
 app.post('/user/upload-profile-pic', 
@@ -254,7 +434,15 @@ app.post('/coach/upload-profile-pic',
 app.get('/user/plans', passport.authenticate('jwt', { session: false }), ensureUserAccess, async (req, res) => {
   try {
     const client = await pool.connect();
-    const result = await client.query('SELECT * FROM users_plans WHERE user_id = $1', [req.user.id]);
+
+    // Query to join users_plans with any additional information if needed
+    const query = `
+      SELECT up.id as plan_id, up.movements, up.progress, up.reg_at, u.email as coach_email
+      FROM users_plans up
+      LEFT JOIN users u ON u.id = up.coach_id
+      WHERE up.user_id = $1
+    `;
+    const result = await client.query(query, [req.user.id]);
     client.release();
 
     return res.json({ plans: result.rows });
@@ -263,6 +451,7 @@ app.get('/user/plans', passport.authenticate('jwt', { session: false }), ensureU
     return res.status(500).json({ error: 'Failed to retrieve user plans' });
   }
 });
+
 
 
 // API to get all diets
@@ -285,7 +474,7 @@ app.post('/user/choose-diet/:dietId', passport.authenticate('jwt', { session: fa
   
     try {
       const client = await pool.connect();
-      const coachId = null; // This can be null for now or filled in if a coach assigns the diet later
+      const coachId = 0; // This can be null for now or filled in if a coach assigns the diet later
   
       await client.query(
         'INSERT INTO users_diets (user_id, coach_id, diet, reg_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP)',
@@ -364,7 +553,15 @@ app.get('/coach/user-info/:userId', passport.authenticate('jwt', { session: fals
 app.get('/user/diets', passport.authenticate('jwt', { session: false }), ensureUserAccess, async (req, res) => {
   try {
     const client = await pool.connect();
-    const result = await client.query('SELECT * FROM users_diets WHERE user_id = $1', [req.user.id]);
+
+    // Query to join users_diets and diets table with a type cast on the diet field
+    const query = `
+      SELECT ud.id as user_diet_id, ud.reg_at, d.*
+      FROM users_diets ud
+      JOIN diets d ON CAST(ud.diet AS INTEGER) = d.id
+      WHERE ud.user_id = $1
+    `;
+    const result = await client.query(query, [req.user.id]);
     client.release();
 
     return res.json({ diets: result.rows });
@@ -374,11 +571,21 @@ app.get('/user/diets', passport.authenticate('jwt', { session: false }), ensureU
   }
 });
 
+
+
 // Get All User Coaches
 app.get('/user/coaches', passport.authenticate('jwt', { session: false }), ensureUserAccess, async (req, res) => {
   try {
     const client = await pool.connect();
-    const result = await client.query('SELECT * FROM users_coach WHERE user_id = $1', [req.user.id]);
+
+    // Query to join users_coach with users table to fetch coach information
+    const query = `
+      SELECT uc.id as user_coach_id, uc.choosed_at, u.id as coach_id, u.email, u.phone
+      FROM users_coach uc
+      JOIN users u ON uc.coach_id = u.id
+      WHERE uc.user_id = $1
+    `;
+    const result = await client.query(query, [req.user.id]);
     client.release();
 
     return res.json({ coaches: result.rows });
@@ -387,6 +594,7 @@ app.get('/user/coaches', passport.authenticate('jwt', { session: false }), ensur
     return res.status(500).json({ error: 'Failed to retrieve user coaches' });
   }
 });
+
 
 // Update Workout Info
 // API to update or insert workout information
@@ -462,11 +670,25 @@ app.post('/login', async (req, res) => {
           'INSERT INTO users_login (user_id, loggedin_at) VALUES ($1, CURRENT_TIMESTAMP) ON CONFLICT (user_id) DO UPDATE SET loggedin_at = CURRENT_TIMESTAMP',
           [user.id]
         );
+
+        // Generate a 4-digit OTP
+        const otpCode = generateOTP();
+
+        // Send the OTP via SMS
+        smsir.SendVerifyCode(phone, 100000, [
+          {
+            "name": "Code",
+            "value": otpCode
+          }
+        ]);
   
-        // Generate a JWT token for the existing user
-        const token = jwt.sign({ id: user.id, access: user.access }, jwtSecret, { expiresIn: '30d' });
+        const timestamp = Date.now();
+        const redisKey = `${phone}:${timestamp}`;
+        await redisClient.setEx(redisKey, 120, otpCode.toString());  // Ensure the value is a string // Store OTP for 2 minutes
+        
+        
         client.release();
-        return res.json({ message: 'Login successful', token: token });
+        return res.json({ message: 'OTP code sent' });
       } else {
         // If the user does not exist, register a new user
         const insertQuery = 'INSERT INTO users (email, phone) VALUES ($1, $2) RETURNING id, email, phone';
@@ -479,12 +701,24 @@ app.post('/login', async (req, res) => {
           'INSERT INTO users_login (user_id, loggedin_at) VALUES ($1, CURRENT_TIMESTAMP)',
           [user.id]
         );
+
+        // Generate a 4-digit OTP
+        const otpCode = generateOTP();
+
+        // Send the OTP via SMS
+        smsir.SendVerifyCode(phone, 100000, [
+          {
+            "name": "Code",
+            "value": otpCode
+          }
+        ]);
   
-        // Generate a JWT token for the new user
-        const token = jwt.sign({ id: user.id, access: user.access }, jwtSecret, { expiresIn: '30d' });
-  
+        const timestamp = Date.now();
+        const redisKey = `${phone}:${timestamp}`;
+        await redisClient.setEx(redisKey, 120, otpCode.toString());  // Ensure the value is a string // Store OTP for 2 minutes
+
         client.release();
-        return res.status(201).json({ message: 'User registered and logged in', token: token });
+        return res.status(201).json({ message: 'OTP code sent' });
       }
   
     } catch (err) {
@@ -492,6 +726,57 @@ app.post('/login', async (req, res) => {
       return res.status(500).json({ error: 'Login/Registration failed' });
     }
   });
+
+  app.post('/validate-otp', async (req, res) => {
+    const { phone, otp } = req.body;
+
+    if (!phone || !otp) {
+      return res.status(400).json({ message: 'Phone and OTP are required.' });
+    }
+
+    try {
+      // Fetch all keys matching the phone number
+      const keys = await redisClient.keys(`${phone}:*`);
+      
+      // If no keys found (OTP expired)
+      if (keys.length === 0) {
+        return res.status(400).json({ message: 'OTP code has expired' });
+      }
+
+      // Get the latest OTP by selecting the last key (there may be multiple if using timestamps)
+      const redisKey = keys[0]; // Assuming the first match is the valid OTP
+      const storedOtp = await redisClient.get(redisKey);
+
+      // Check if OTP matches
+      if (storedOtp !== otp) {
+        return res.status(400).json({ message: 'Invalid OTP code' });
+      }
+
+      // OTP is valid, fetch user from DB
+      const client = await pool.connect();
+      const result = await client.query('SELECT * FROM users WHERE phone = $1', [phone]);
+
+      if (result.rows.length === 0) {
+        client.release();
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      const user = result.rows[0];
+
+      // Generate a JWT token for the user
+      const token = jwt.sign({ id: user.id, access: user.access }, jwtSecret, { expiresIn: '30d' });
+
+      client.release();
+      
+      // Return the JWT token in response
+      return res.json({ message: 'OTP validated successfully', token: token });
+
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Failed to validate OTP' });
+    }
+});
+
   
 
 // API to get all open wikis (plan_id = 0)

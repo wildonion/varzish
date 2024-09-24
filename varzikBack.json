@@ -39,7 +39,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"email\": \"ea_pain@yahoo.com\",\n  \"phone\": \"1234567890\"\n}"
+							"raw": "{\n  \"email\": \"marefimoghaddam@icloud.com\",\n  \"phone\": \"09211686115\"\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/login",
@@ -48,6 +48,48 @@
 							],
 							"path": [
 								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Validate OTP",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200 || pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.environment.set(\"token\", jsonData.token);",
+									"    pm.environment.set(\"userId\", jsonData.user?.id || \"\");",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"otp\": \"1911\",\n  \"phone\": \"09211686115\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/validate-otp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"validate-otp"
 							]
 						}
 					},
@@ -88,7 +130,7 @@
 							"bearer": [
 								{
 									"key": "token",
-									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiYWNjZXNzIjowLCJpYXQiOjE3MjcwOTIyMTEsImV4cCI6MTcyOTY4NDIxMX0.MuB8DP7ff2cXq7VhsnQUPIbuxMQxoCelDaO3-AqET6I",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiYWNjZXNzIjoyLCJpYXQiOjE3MjcxNzc3MDgsImV4cCI6MTcyOTc2OTcwOH0.LtxPR1gwtpQmxnF5XBhZ3MIkM6CIAoSmz78rXbzHQ3w",
 									"type": "string"
 								}
 							]
@@ -115,6 +157,16 @@
 				{
 					"name": "Upload Profile Picture (User)",
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3MjcxNzk1MTIsImV4cCI6MTcyOTc3MTUxMn0.a2FeOPOHJD2vzd0Bu2eQx0tUId5m_0hJqPwyIyXPa5A",
+									"type": "string"
+								}
+							]
+						},
 						"method": "POST",
 						"header": [
 							{
@@ -127,8 +179,8 @@
 							"formdata": [
 								{
 									"key": "profile_pic",
-									"value": "",
-									"type": "file"
+									"type": "file",
+									"src": "/Users/wildonion/Desktop/ban.jpg"
 								}
 							]
 						},
@@ -148,6 +200,16 @@
 				{
 					"name": "Rate a Coach",
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3MjcxNzk1MTIsImV4cCI6MTcyOTc3MTUxMn0.a2FeOPOHJD2vzd0Bu2eQx0tUId5m_0hJqPwyIyXPa5A",
+									"type": "string"
+								}
+							]
+						},
 						"method": "POST",
 						"header": [
 							{
@@ -164,20 +226,14 @@
 							"raw": "{\n  \"stars\": 4\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/user/rate-coach/:coachId",
+							"raw": "{{base_url}}/user/rate-coach/2",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"user",
 								"rate-coach",
-								":coachId"
-							],
-							"variable": [
-								{
-									"key": "coachId",
-									"value": "1"
-								}
+								"2"
 							]
 						}
 					},
@@ -186,6 +242,16 @@
 				{
 					"name": "Get Coaches Above 3.5 Rating",
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3MjcxNzk1MTIsImV4cCI6MTcyOTc3MTUxMn0.a2FeOPOHJD2vzd0Bu2eQx0tUId5m_0hJqPwyIyXPa5A",
+									"type": "string"
+								}
+							]
+						},
 						"method": "GET",
 						"header": [
 							{
@@ -209,6 +275,16 @@
 				{
 					"name": "Get All User Plans",
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3MjcxNzk1MTIsImV4cCI6MTcyOTc3MTUxMn0.a2FeOPOHJD2vzd0Bu2eQx0tUId5m_0hJqPwyIyXPa5A",
+									"type": "string"
+								}
+							]
+						},
 						"method": "GET",
 						"header": [
 							{
@@ -232,6 +308,16 @@
 				{
 					"name": "Get All User Diets",
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3MjcxNzk1MTIsImV4cCI6MTcyOTc3MTUxMn0.a2FeOPOHJD2vzd0Bu2eQx0tUId5m_0hJqPwyIyXPa5A",
+									"type": "string"
+								}
+							]
+						},
 						"method": "GET",
 						"header": [
 							{
@@ -255,6 +341,16 @@
 				{
 					"name": "Get All User Coaches",
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3MjcxNzk1MTIsImV4cCI6MTcyOTc3MTUxMn0.a2FeOPOHJD2vzd0Bu2eQx0tUId5m_0hJqPwyIyXPa5A",
+									"type": "string"
+								}
+							]
+						},
 						"method": "GET",
 						"header": [
 							{
@@ -283,7 +379,7 @@
 							"bearer": [
 								{
 									"key": "token",
-									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiYWNjZXNzIjowLCJpYXQiOjE3MjcwOTA4NzcsImV4cCI6MTcyOTY4Mjg3N30.2n_sddKgIkdOqYC2kbGGkDEXrzz45Ybs3X_I8800gd0",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3MjcxNzk1MTIsImV4cCI6MTcyOTc3MTUxMn0.a2FeOPOHJD2vzd0Bu2eQx0tUId5m_0hJqPwyIyXPa5A",
 									"type": "string"
 								}
 							]
@@ -324,7 +420,7 @@
 							"bearer": [
 								{
 									"key": "token",
-									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiYWNjZXNzIjowLCJpYXQiOjE3MjcwOTA4NzcsImV4cCI6MTcyOTY4Mjg3N30.2n_sddKgIkdOqYC2kbGGkDEXrzz45Ybs3X_I8800gd0",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3MjcxNzk1MTIsImV4cCI6MTcyOTc3MTUxMn0.a2FeOPOHJD2vzd0Bu2eQx0tUId5m_0hJqPwyIyXPa5A",
 									"type": "string"
 								}
 							]
@@ -338,7 +434,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"content\": \"No known allergies.\"\n}"
+							"raw": "{\n  \"content\": \"Hadrd Penis\"\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/user/update-medical-record",
@@ -356,6 +452,16 @@
 				{
 					"name": "Get Open Wikis",
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3MjcxNzk1MTIsImV4cCI6MTcyOTc3MTUxMn0.a2FeOPOHJD2vzd0Bu2eQx0tUId5m_0hJqPwyIyXPa5A",
+									"type": "string"
+								}
+							]
+						},
 						"method": "GET",
 						"header": [
 							{
@@ -442,7 +548,7 @@
 							"bearer": [
 								{
 									"key": "token",
-									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiYWNjZXNzIjowLCJpYXQiOjE3MjcwOTA4NzcsImV4cCI6MTcyOTY4Mjg3N30.2n_sddKgIkdOqYC2kbGGkDEXrzz45Ybs3X_I8800gd0",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3MjcxNzk1MTIsImV4cCI6MTcyOTc3MTUxMn0.a2FeOPOHJD2vzd0Bu2eQx0tUId5m_0hJqPwyIyXPa5A",
 									"type": "string"
 								}
 							]
@@ -466,6 +572,16 @@
 				{
 					"name": "Choose a Diet",
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3MjcxNzk1MTIsImV4cCI6MTcyOTc3MTUxMn0.a2FeOPOHJD2vzd0Bu2eQx0tUId5m_0hJqPwyIyXPa5A",
+									"type": "string"
+								}
+							]
+						},
 						"method": "POST",
 						"header": [
 							{
@@ -474,20 +590,14 @@
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/user/choose-diet/:dietId",
+							"raw": "{{base_url}}/user/choose-diet/1",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"user",
 								"choose-diet",
-								":dietId"
-							],
-							"variable": [
-								{
-									"key": "dietId",
-									"value": "1"
-								}
+								"1"
 							]
 						}
 					},
@@ -501,7 +611,7 @@
 							"bearer": [
 								{
 									"key": "token",
-									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiYWNjZXNzIjowLCJpYXQiOjE3MjcwOTE5MDMsImV4cCI6MTcyOTY4MzkwM30.1BacwKA1S4DXomvbBgybsOnNxP4Od3_AxWtx2ucuF6M",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3MjcxNzk1MTIsImV4cCI6MTcyOTc3MTUxMn0.a2FeOPOHJD2vzd0Bu2eQx0tUId5m_0hJqPwyIyXPa5A",
 									"type": "string"
 								}
 							]
@@ -534,7 +644,7 @@
 							"bearer": [
 								{
 									"key": "token",
-									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiYWNjZXNzIjowLCJpYXQiOjE3MjcwOTE5MDMsImV4cCI6MTcyOTY4MzkwM30.1BacwKA1S4DXomvbBgybsOnNxP4Od3_AxWtx2ucuF6M",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3MjcxNzk1MTIsImV4cCI6MTcyOTc3MTUxMn0.a2FeOPOHJD2vzd0Bu2eQx0tUId5m_0hJqPwyIyXPa5A",
 									"type": "string"
 								}
 							]
@@ -586,6 +696,16 @@
 				{
 					"name": "Upload Profile Picture (Coach)",
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiYWNjZXNzIjoxLCJpYXQiOjE3MjcxNzg5NzQsImV4cCI6MTcyOTc3MDk3NH0.EeMZss2Aocs7_Et7fYRxW-863C7fx01xDtaTkGCdga8",
+									"type": "string"
+								}
+							]
+						},
 						"method": "POST",
 						"header": [
 							{
@@ -598,8 +718,11 @@
 							"formdata": [
 								{
 									"key": "profile_pic",
-									"value": "",
-									"type": "file"
+									"type": "file",
+									"src": [
+										"",
+										"/Users/wildonion/Desktop/ban.jpg"
+									]
 								}
 							]
 						},
@@ -657,6 +780,16 @@
 				{
 					"name": "Get Active Students",
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiYWNjZXNzIjoxLCJpYXQiOjE3MjcxNzg5NzQsImV4cCI6MTcyOTc3MDk3NH0.EeMZss2Aocs7_Et7fYRxW-863C7fx01xDtaTkGCdga8",
+									"type": "string"
+								}
+							]
+						},
 						"method": "GET",
 						"header": [
 							{
@@ -747,6 +880,144 @@
 								"coach",
 								"user-info",
 								"1"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Admin APIs",
+			"item": [
+				{
+					"name": "Create Diet",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiYWNjZXNzIjoyLCJpYXQiOjE3MjcxNzc3MDgsImV4cCI6MTcyOTc2OTcwOH0.LtxPR1gwtpQmxnF5XBhZ3MIkM6CIAoSmz78rXbzHQ3w",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"diet_name\": \"outmeal\",\n    \"content\": \"deliciouse\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/admin/create-diet",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"admin",
+								"create-diet"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Wiki",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiYWNjZXNzIjowLCJpYXQiOjE3MjcwOTIyMTEsImV4cCI6MTcyOTY4NDIxMX0.MuB8DP7ff2cXq7VhsnQUPIbuxMQxoCelDaO3-AqET6I",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "video",
+									"type": "file",
+									"src": [
+										"",
+										"/Users/wildonion/Downloads/4267245-uhd_3840_2160_30fps.mp4"
+									]
+								},
+								{
+									"key": "title",
+									"value": "squat",
+									"type": "text"
+								},
+								{
+									"key": "plan_id",
+									"value": "0",
+									"description": "0 means free wiki / having id means users_plans id table",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/admin/create-wiki",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"admin",
+								"create-wiki"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Coach Status",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiYWNjZXNzIjowLCJpYXQiOjE3MjcwOTIyMTEsImV4cCI6MTcyOTY4NDIxMX0.MuB8DP7ff2cXq7VhsnQUPIbuxMQxoCelDaO3-AqET6I",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/admin/toggle-coach-status/2",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"admin",
+								"toggle-coach-status",
+								"2"
 							]
 						}
 					},
