@@ -9,6 +9,8 @@ const path = require('path');
 const fs = require('fs');
 const {Smsir} = require('./smsir')
 const redis = require('redis'); // Import Redis
+const OpenAIApi = require("openai");
+
 
 
 // Initialize Redis client
@@ -36,12 +38,15 @@ redisClient.on('end', () => {
   console.log('Disconnected from Redis');
 });
 
-
 // Configuring JWT Strategy for Passport
 const ExtractJwt = passportJWT.ExtractJwt;
 const JwtStrategy = passportJWT.Strategy;
 const jwtSecret = 'geDteDd0Ltg2135FJYQ6rjNYHYkGQa70'; // Secret for JWT signing
-const smstoken = "";
+const smstoken = "0000";
+const openai_key = '00000';
+
+const openai = new OpenAIApi({ apiKey: openai_key });
+
 
 // Initialize Express app
 const app = express();
@@ -64,6 +69,39 @@ const smsir = new Smsir(smstoken, 30007732905399)
 const generateOTP = () => {
   return Math.floor(1000 + Math.random() * 9000); // Generates a random number between 1000 and 9999
 };
+
+
+// Configure multer for file uploads
+const Gptstorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = 'uploads/gpt/docs/';
+    if (!fs.existsSync(uploadDir)){
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir); // Save files to the 'uploads/' directory
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname); // Get the file extension
+    cb(null, `${req.user.id}-${Date.now()}${ext}`); // File name: coachId-timestamp.extension
+  }
+});
+
+const Gptupload = multer({
+  storage: Gptstorage,
+  limits: { fileSize: 20 * 1024 * 1024 }, // Limit to 20MB
+  fileFilter: function (req, file, cb) {
+    const filetypes = /|doc|xls|pdf/;
+    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = filetypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only PNG, DOC, XLS, or PDF files are allowed!'));
+    }
+  }
+});
+
 
 // Configure multer for image uploads and append timestamp to filename
 const storage = multer.diskStorage({
@@ -281,6 +319,116 @@ app.post('/admin/create-diet', passport.authenticate('jwt', { session: false }),
 });
 
 
+// https://stackoverflow.com/questions/77816816/openai-assistants-api-how-to-get-response-from-the-v1-assistants-api-endpoint
+app.post('/coach/gpt-conversation', 
+  passport.authenticate('jwt', { session: false }), 
+  ensureCoachAccess, 
+  Gptupload.single('file'),  // Handling single file upload
+  async (req, res) => {
+    const { message } = req.body;  // The message from the coach
+    const file = req.file;  // The uploaded file
+    
+    if (!message) {
+      return res.status(400).json({ message: 'Message is required.' });
+    }
+
+    try {
+      // Step 1: Create an assistant
+      const myAssistant = await openai.beta.assistants.create({
+        instructions:
+          "analyze the attached files and try to learn them, those are my workout plans based on my experience and styles, learn how i give a workout plan to students, you must use this and follow the routines for future plans",
+        name: "Workout Plan",
+        tools: [{ type: "file_search" }],
+        model: "gpt-4o",
+      });
+
+      console.log(myAssistant);
+
+      const client = await pool.connect();
+      await client.query(
+        'INSERT INTO gpt_coach_assistant (coach_id, assist_id) VALUES ($1, $2)',
+        [req.user.id, myAssistant.id]
+      );
+      client.release();
+
+      // Step 2: Upload the file to OpenAI
+      const docs = await openai.files.create({
+        file: fs.createReadStream(`uploads/gpt/docs/${file.filename}`),
+        purpose: "assistants"
+      });
+      
+      // Create vector store
+      let vectorStore = await openai.beta.vectorStores.create({
+        name: "Workout Plans",
+      });
+      
+      await openai.beta.vectorStores.files.createAndPoll(vectorStore.id, { file_id: docs.id })
+
+      // Step 3: Link the vector store to the assistant
+      await openai.beta.assistants.update(myAssistant.id, {
+        tool_resources: { file_search: { vector_store_ids: [vectorStore.id] } },
+      });
+
+      // Step 4: Start a thread and run it with the message
+      const run = await openai.beta.threads.createAndRun({
+        assistant_id: myAssistant.id,
+        thread: {
+          messages: [
+            { role: "user", content: message, attachments: [{ file_id: docs.id, tools: [{ type: "file_search" }] }] },
+          ],
+        },
+      });
+
+      console.log(run);
+
+      // Step 5: Polling to check the thread run status until it completes
+      const intervalTime = 5000; // Poll every 5 seconds
+      const maxAttempts = 12; // Stop polling after 1 minute (12 * 5 seconds)
+      let attempts = 0;
+
+      const checkThreadStatus = async () => {
+        try {
+          // Fetch the run result to check the status
+          const runResult = await openai.beta.threads.runs.retrieve(
+            run.thread_id,
+            run.id
+          );
+
+          if (runResult.status === 'completed') {
+            // Fetch the thread messages once the run is completed
+            const threadMessages = await openai.beta.threads.messages.list(run.thread_id);
+
+            // Send the messages to the client
+            res.status(200).json({ message: 'assistant, run, thread completed', data: threadMessages });
+
+            clearInterval(polling); // Stop polling
+          } else {
+            console.log(`Run status: ${runResult.status}`);
+          }
+
+          attempts++;
+
+          if (attempts >= maxAttempts) {
+            clearInterval(polling); // Stop polling after max attempts
+            res.status(408).json({ error: 'Timeout: The operation is taking longer than expected. Please try again later.' });
+          }
+        } catch (err) {
+          console.error('Error checking thread status:', err);
+          clearInterval(polling); // Stop polling in case of error
+          res.status(500).json({ error: 'Failed to check thread status' });
+        }
+      };
+
+      // Start polling
+      const polling = setInterval(checkThreadStatus, intervalTime);
+
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Failed to handle GPT conversation' });
+    }
+
+
+});
 
   // API for users to upload profile picture
 app.post('/user/upload-profile-pic', 
