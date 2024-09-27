@@ -61,6 +61,41 @@ TRUNCATE "diets";
 INSERT INTO "diets" ("id", "diet_name", "content") VALUES
 (1,	'outmeal',	'deliciouse');
 
+DROP TABLE IF EXISTS "gpt_coach_assistant";
+DROP SEQUENCE IF EXISTS gpt_coach_assistant_id_seq;
+CREATE SEQUENCE gpt_coach_assistant_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 20 CACHE 1;
+
+CREATE TABLE "public"."gpt_coach_assistant" (
+    "id" integer DEFAULT nextval('gpt_coach_assistant_id_seq') NOT NULL,
+    "coach_id" integer,
+    "assist_id" character varying(255) NOT NULL,
+    CONSTRAINT "gpt_coach_assistant_assist_id_key" UNIQUE ("assist_id"),
+    CONSTRAINT "gpt_coach_assistant_pkey" PRIMARY KEY ("id")
+) WITH (oids = false);
+
+TRUNCATE "gpt_coach_assistant";
+INSERT INTO "gpt_coach_assistant" ("id", "coach_id", "assist_id") VALUES
+(20,	2,	'asst_roQM9VE73HxfP2F7i0zdhZHO');
+
+DROP TABLE IF EXISTS "gpt_users_plans";
+DROP SEQUENCE IF EXISTS gpt_users_plans_id_seq;
+CREATE SEQUENCE gpt_users_plans_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 1 CACHE 1;
+
+CREATE TABLE "public"."gpt_users_plans" (
+    "id" integer DEFAULT nextval('gpt_users_plans_id_seq') NOT NULL,
+    "user_id" integer NOT NULL,
+    "coach_id" integer NOT NULL,
+    "thread_id" character varying(255),
+    "run_id" character varying(255),
+    "message" text,
+    "created_at" timestamp DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "gpt_users_plans_pkey" PRIMARY KEY ("id")
+) WITH (oids = false);
+
+TRUNCATE "gpt_users_plans";
+INSERT INTO "gpt_users_plans" ("id", "user_id", "coach_id", "thread_id", "run_id", "message", "created_at") VALUES
+(1,	3,	2,	'thread_R72xxmD83YDSgHezLpvDPYu1',	'run_lAvd6jqZw0qVsP5DeA4CYpGm',	'من ۲۸ سالمه یه برنامه میخواستم و وزنم ۶۸ کیلوگرم هست برای فیتنس مدلینگ',	'2024-09-27 08:02:47.183094');
+
 DROP TABLE IF EXISTS "users";
 DROP SEQUENCE IF EXISTS users_id_seq;
 CREATE SEQUENCE users_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 3 CACHE 1;
@@ -84,17 +119,20 @@ INSERT INTO "users" ("id", "email", "phone", "registered_time", "access") VALUES
 
 DROP TABLE IF EXISTS "users_coach";
 DROP SEQUENCE IF EXISTS users_coach_id_seq;
-CREATE SEQUENCE users_coach_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1;
+CREATE SEQUENCE users_coach_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 2 CACHE 1;
 
 CREATE TABLE "public"."users_coach" (
     "id" integer DEFAULT nextval('users_coach_id_seq') NOT NULL,
     "user_id" integer NOT NULL,
     "coach_id" integer NOT NULL,
     "choosed_at" timestamp DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "unique_cu_id" UNIQUE ("user_id", "coach_id"),
     CONSTRAINT "users_coach_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
 
 TRUNCATE "users_coach";
+INSERT INTO "users_coach" ("id", "user_id", "coach_id", "choosed_at") VALUES
+(1,	3,	2,	'2024-09-27 09:33:27.423787');
 
 DROP TABLE IF EXISTS "users_diets";
 DROP SEQUENCE IF EXISTS users_diets_id_seq;
@@ -176,13 +214,13 @@ DELIMITER ;
 
 DROP TABLE IF EXISTS "users_plans";
 DROP SEQUENCE IF EXISTS users_plans_id_seq;
-CREATE SEQUENCE users_plans_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1;
+CREATE SEQUENCE users_plans_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 1 CACHE 1;
 
 CREATE TABLE "public"."users_plans" (
     "id" integer DEFAULT nextval('users_plans_id_seq') NOT NULL,
     "user_id" integer NOT NULL,
     "coach_id" integer NOT NULL,
-    "movements" jsonb NOT NULL,
+    "movements" text NOT NULL,
     "reg_at" timestamp DEFAULT CURRENT_TIMESTAMP,
     "updated_at" timestamp DEFAULT CURRENT_TIMESTAMP,
     "progress" numeric DEFAULT '0',
@@ -190,6 +228,95 @@ CREATE TABLE "public"."users_plans" (
 ) WITH (oids = false);
 
 TRUNCATE "users_plans";
+INSERT INTO "users_plans" ("id", "user_id", "coach_id", "movements", "reg_at", "updated_at", "progress") VALUES
+(1,	3,	2,	'### برنامه تمرینی فیتنس مدلینگ
+
+#### مشخصات شما:
+- سن: ۲۸ سال
+- وزن: ۶۸ کیلوگرم
+
+### روز اول: پاها و پایین تنه
+
+#### گرم‌ کردن:
+1. **پریدن با طناب**: 5 دقیقه
+2. **حرکات کششی دینامیک**: 5 دقیقه
+
+#### تمرینات اصلی:
+1. **اسکوات با هالتر**: 3 ست، 12-10 تکرار
+2. **اسکوات بلغاری**: 3 ست، هر پا 12 تکرار
+3. **ددلیفت با هالتر**: 3 ست، 10 تکرار
+4. **پرس پا**: 3 ست، 15-12 تکرار
+5. **کاف ریز**: 4 ست، 20 تکرار
+
+#### سرد کردن:
+1. **دویدن آهسته یا پیاده‌روی**: 5 دقیقه
+2. **حرکات کششی استاتیک**: 5 دقیقه
+
+### روز دوم: بالاتنه
+
+#### گرم‌ کردن:
+1. **پریدن به جلو و عقب**: 3 دقیقه
+2. **حرکات چرخشی بازو**: 3 دقیقه
+
+#### تمرینات اصلی:
+1. **پرس سینه با دمبل**: 4 ست، 12-10 تکرار
+2. **پرس بالا سینه با هالتر**: 3 ست، 12 تکرار
+3. **کشیدن به بالا (Pull-ups)**: 3 ست، هر تعدادی که می‌توانید
+4. **پرس شانه با دمبل**: 4 ست، 12 تکرار
+5. **ددلیفت با دمبل**: 3 ست، 15 تکرار
+
+#### سرد کردن:
+1. **پیاده‌روی یا آرام دویدن**: 5 دقیقه
+2. **حرکات کششی استاتیک**: 5 دقیقه
+
+### روز سوم: استراحت فعال یا تمرینات هوازی
+
+#### فعالیت‌های پیشنهاد شده:
+1. **دویدن یا پیاده‌روی تند**: 30-45 دقیقه
+2. **دوچرخه‌سواری**: 45 دقیقه
+
+### روز چهارم: تمرین کل بدن
+
+#### گرم‌ کردن:
+1. **پریدن با طناب**: 5 دقیقه
+2. **حرکات کششی دینامیک**: 5 دقیقه
+
+#### تمرینات اصلی:
+1. **اسکوات با هالتر**: 3 ست، 15-12 تکرار
+2. **پرس سینه با دمبل**: 3 ست، 12-10 تکرار
+3. **ددلیفت با هالتر**: 3 ست، 10 تکرار
+4. **پرس شانه با هالتر**: 3 ست، 12 تکرار
+5. **پلانک**: 4 ست، هر ست 1 دقیقه
+
+#### سرد کردن:
+1. **پیاده‌روی یا آرام دویدن**: 5 دقیقه
+2. **حرکات کششی استاتیک**: 5 دقیقه
+
+### روز پنجم: تمرینات شکم و هسته بدن
+
+#### گرم‌ کردن:
+1. **پریدن به جلو و عقب**: 3 دقیقه
+2. **حرکات چرخشی شکم**: 3 دقیقه
+
+#### تمرینات اصلی:
+1. **پلانک**: 4 ست، هر ست 1 دقیقه
+2. **کرانچ با وزن**: 3 ست، 15 تکرار
+3. **آویزان شدن و بالا بردن پاها**: 3 ست، 15 تکرار
+4. **پلانک جانبی**: 3 ست، هر طرف 1 دقیقه
+5. **کیک بک**: 4 ست، هر پا 20 تکرار
+
+#### سرد کردن:
+1. **پیاده‌روی یا آرام دویدن**: 5 دقیقه
+2. **حرکات کششی استاتیک**: 5 دقیقه
+
+### روز ششم و هفتم: استراحت کامل
+
+### نکات مهم:
+- **تغذیه**: مصرف پروتئین بالا، میوه‌ها، سبزیجات، و آب کافی.
+- **خواب و استراحت**: خواب کافی برای بهبود ریکاوری و عملکرد بهتر.
+- **پیشگیری از آسیب‌ها**: در صورت وجود آسیب یا درد، با پزشک یا متخصص مشورت کنید【7:0†source】【4:0†source】.
+
+این برنامه می‌تواند برای اهداف فیتنس مدلینگ شما مفید باشد. در صورت نیاز به تنظیمات خاص، با یک مربی مجرب مشورت کنید.',	'2024-09-27 09:33:27.399831',	'2024-09-27 09:33:27.399831',	0);
 
 DELIMITER ;;
 
@@ -256,6 +383,8 @@ ALTER TABLE ONLY "public"."coach_info" ADD CONSTRAINT "coach_info_coach_id_fkey"
 ALTER TABLE ONLY "public"."coaches_ratings" ADD CONSTRAINT "coaches_ratings_coach_id_fkey" FOREIGN KEY (coach_id) REFERENCES users(id) ON DELETE CASCADE NOT DEFERRABLE;
 ALTER TABLE ONLY "public"."coaches_ratings" ADD CONSTRAINT "coaches_ratings_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE NOT DEFERRABLE;
 
+ALTER TABLE ONLY "public"."gpt_coach_assistant" ADD CONSTRAINT "gpt_coach_assistant_coach_id_fkey" FOREIGN KEY (coach_id) REFERENCES users(id) ON DELETE CASCADE NOT DEFERRABLE;
+
 ALTER TABLE ONLY "public"."users_coach" ADD CONSTRAINT "users_coach_coach_id_fkey" FOREIGN KEY (coach_id) REFERENCES users(id) ON DELETE CASCADE NOT DEFERRABLE;
 ALTER TABLE ONLY "public"."users_coach" ADD CONSTRAINT "users_coach_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE NOT DEFERRABLE;
 
@@ -272,4 +401,4 @@ ALTER TABLE ONLY "public"."users_plans" ADD CONSTRAINT "users_plans_user_id_fkey
 
 ALTER TABLE ONLY "public"."users_workout_info" ADD CONSTRAINT "users_workout_info_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE NOT DEFERRABLE;
 
--- 2024-09-24 12:32:11.488773+00
+-- 2024-09-27 09:47:13.570465+00

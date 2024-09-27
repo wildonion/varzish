@@ -42,8 +42,8 @@ redisClient.on('end', () => {
 const ExtractJwt = passportJWT.ExtractJwt;
 const JwtStrategy = passportJWT.Strategy;
 const jwtSecret = 'geDteDd0Ltg2135FJYQ6rjNYHYkGQa70'; // Secret for JWT signing
-const smstoken = "0000";
-const openai_key = '00000';
+const smstoken = "";
+const openai_key = '';
 
 const openai = new OpenAIApi({ apiKey: openai_key });
 
@@ -325,31 +325,36 @@ app.post('/coach/gpt-conversation',
   ensureCoachAccess, 
   Gptupload.single('file'),  // Handling single file upload
   async (req, res) => {
-    const { message } = req.body;  // The message from the coach
     const file = req.file;  // The uploaded file
-    
-    if (!message) {
-      return res.status(400).json({ message: 'Message is required.' });
-    }
 
     try {
+      const client = await pool.connect();
+
+      // Check if the coach already has an assistant
+      const checkAssistantQuery = `
+        SELECT assist_id 
+        FROM gpt_coach_assistant 
+        WHERE coach_id = $1
+      `;
+      const checkResult = await client.query(checkAssistantQuery, [req.user.id]);
+
+      if (checkResult.rows.length > 0 && checkResult.rows[0].assist_id) {
+        // If assist_id exists, reject the request
+        client.release();
+        return res.status(400).json({
+          error: "You already have an assistant. Please contact administrator to delete the existing one."
+        });
+      }
+
+      // ---------------------------
       // Step 1: Create an assistant
       const myAssistant = await openai.beta.assistants.create({
         instructions:
-          "analyze the attached files and try to learn them, those are my workout plans based on my experience and styles, learn how i give a workout plan to students, you must use this and follow the routines for future plans",
-        name: "Workout Plan",
+          "analyze the attached file and try to learn my routine, those are my workout plans based on my experience and styles, learn how i give a workout plan to students, you must use this and follow the routines for future plans cause students will ask you to get plans based on their medical and training infos",
+        name: `Workout Plans for coach with Id ${req.user.id}`,
         tools: [{ type: "file_search" }],
         model: "gpt-4o",
       });
-
-      console.log(myAssistant);
-
-      const client = await pool.connect();
-      await client.query(
-        'INSERT INTO gpt_coach_assistant (coach_id, assist_id) VALUES ($1, $2)',
-        [req.user.id, myAssistant.id]
-      );
-      client.release();
 
       // Step 2: Upload the file to OpenAI
       const docs = await openai.files.create({
@@ -359,76 +364,182 @@ app.post('/coach/gpt-conversation',
       
       // Create vector store
       let vectorStore = await openai.beta.vectorStores.create({
-        name: "Workout Plans",
+        name: `Workout Plans for coach with Id ${req.user.id}`,
       });
       
-      await openai.beta.vectorStores.files.createAndPoll(vectorStore.id, { file_id: docs.id })
+      await openai.beta.vectorStores.files.createAndPoll(vectorStore.id, { file_id: docs.id });
 
       // Step 3: Link the vector store to the assistant
       await openai.beta.assistants.update(myAssistant.id, {
         tool_resources: { file_search: { vector_store_ids: [vectorStore.id] } },
       });
 
-      // Step 4: Start a thread and run it with the message
-      const run = await openai.beta.threads.createAndRun({
-        assistant_id: myAssistant.id,
-        thread: {
-          messages: [
-            { role: "user", content: message, attachments: [{ file_id: docs.id, tools: [{ type: "file_search" }] }] },
-          ],
-        },
+      // Insert the new assistant record into the database
+      await client.query(
+        'INSERT INTO gpt_coach_assistant (coach_id, assist_id) VALUES ($1, $2)',
+        [req.user.id, myAssistant.id]
+      );
+      client.release();
+
+      // Return success response
+      return res.status(200).json({
+        message: "Bot has trained successfully", 
+        data: myAssistant
       });
-
-      console.log(run);
-
-      // Step 5: Polling to check the thread run status until it completes
-      const intervalTime = 5000; // Poll every 5 seconds
-      const maxAttempts = 12; // Stop polling after 1 minute (12 * 5 seconds)
-      let attempts = 0;
-
-      const checkThreadStatus = async () => {
-        try {
-          // Fetch the run result to check the status
-          const runResult = await openai.beta.threads.runs.retrieve(
-            run.thread_id,
-            run.id
-          );
-
-          if (runResult.status === 'completed') {
-            // Fetch the thread messages once the run is completed
-            const threadMessages = await openai.beta.threads.messages.list(run.thread_id);
-
-            // Send the messages to the client
-            res.status(200).json({ message: 'assistant, run, thread completed', data: threadMessages });
-
-            clearInterval(polling); // Stop polling
-          } else {
-            console.log(`Run status: ${runResult.status}`);
-          }
-
-          attempts++;
-
-          if (attempts >= maxAttempts) {
-            clearInterval(polling); // Stop polling after max attempts
-            res.status(408).json({ error: 'Timeout: The operation is taking longer than expected. Please try again later.' });
-          }
-        } catch (err) {
-          console.error('Error checking thread status:', err);
-          clearInterval(polling); // Stop polling in case of error
-          res.status(500).json({ error: 'Failed to check thread status' });
-        }
-      };
-
-      // Start polling
-      const polling = setInterval(checkThreadStatus, intervalTime);
-
+      
     } catch (err) {
       console.error(err);
       return res.status(500).json({ error: 'Failed to handle GPT conversation' });
     }
-
-
 });
+
+
+app.post('/user/request-coach-plan', passport.authenticate('jwt', { session: false }), ensureUserAccess, async (req, res) => {
+  const { coach_id, message } = req.body;
+  const user_id = req.user.id;  // Assuming the user is authenticated
+  
+  if (!coach_id || !message) {
+    return res.status(400).json({ message: 'Coach ID and message are required.' });
+  }
+
+  try {
+    const client = await pool.connect();
+
+    // Step 1: Check if the user already has an active plan with the coach
+    const planResult = await client.query(
+      'SELECT id, progress FROM users_plans WHERE user_id = $1 AND coach_id = $2 AND progress < 100',
+      [user_id, coach_id]
+    );
+
+    if (planResult.rows.length > 0) {
+      return res.status(400).json({ message: 'You already have an ongoing plan with this coach.' });
+    }
+
+    // Step 2: Find the assistant for the given coach
+    const assistResult = await client.query('SELECT assist_id FROM gpt_coach_assistant WHERE coach_id = $1', [coach_id]);
+
+    if (assistResult.rows.length === 0) {
+      return res.status(400).json({ message: 'Coach has not trained their bot yet.' });
+    }
+
+    const assist_id = assistResult.rows[0].assist_id;
+
+    // Step 3: Check if the user already has an existing thread with the coach
+    let thread_id;
+    const threadResult = await client.query(
+      'SELECT thread_id FROM gpt_users_plans WHERE user_id = $1 AND coach_id = $2',
+      [user_id, coach_id]
+    );
+
+    if (threadResult.rows.length > 0) {
+      thread_id = threadResult.rows[0].thread_id;
+    } else {
+      // Step 4: Create a new thread if no thread exists
+      const thread = await openai.beta.threads.create({
+        messages: [
+          {
+            role: "user",
+            content: message,
+          },
+        ],
+      });
+      thread_id = thread.id;
+
+      // Insert the new thread into the gpt_users_plans table
+      await client.query(
+        'INSERT INTO gpt_users_plans (user_id, coach_id, thread_id, message) VALUES ($1, $2, $3, $4)',
+        [user_id, coach_id, thread_id, message]
+      );
+    }
+
+    // Step 5: Create a new run for the existing or new thread
+    const run = await openai.beta.threads.runs.create(
+      thread_id,
+      { assistant_id: assist_id }
+    );
+
+    const run_id = run.id;
+
+    // Step 6: Store the run ID in the database
+    await client.query(
+      'UPDATE gpt_users_plans SET run_id = $1 WHERE user_id = $2 AND coach_id = $3',
+      [run_id, user_id, coach_id]
+    );
+
+    // Step 7: Polling to check the thread run status
+    const intervalTime = 5000; // Poll every 5 seconds
+    const maxAttempts = 12; // Stop polling after 1 minute (12 * 5 seconds)
+    let attempts = 0;
+
+    const checkThreadStatus = async () => {
+      try {
+        const runResult = await openai.beta.threads.runs.retrieve(
+          thread_id,
+          run_id
+        );
+
+        if (runResult.status === 'completed') {
+          // Step 8: Fetch the thread messages when the run is completed
+          const threadMessages = await openai.beta.threads.messages.list(thread_id);
+          const { data } = threadMessages.body;
+
+          // Step 9: Find the message corresponding to this run
+          const matchingMessage = data.find(message => message.run_id === run_id);
+
+          if (matchingMessage) {
+            // Step 10: Store the movement content into the 'movements' field in users_plans table
+            const movementContent = matchingMessage.content.find(c => c.type === 'text').text.value;
+
+            const insertPlanResult = await client.query(
+              `INSERT INTO users_plans (user_id, coach_id, movements, reg_at, updated_at) 
+               VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
+               RETURNING id, user_id, coach_id, movements, reg_at, updated_at`,
+              [user_id, coach_id, movementContent]
+            );
+            
+            // Retrieve the inserted plan details
+            const newPlan = insertPlanResult.rows[0];
+
+            // Step 11: Store or update the users_coach table with this coach_id and user_id
+            await client.query(
+              'INSERT INTO users_coach (user_id, coach_id, choosed_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ' +
+              'ON CONFLICT (user_id, coach_id) DO UPDATE SET choosed_at = CURRENT_TIMESTAMP',
+              [user_id, coach_id]
+            );
+
+            // Step 12: Respond to the client with the matched message data
+            res.status(200).json({ message: 'Plan created', data: newPlan });
+            clearInterval(polling); // Stop polling
+          } else {
+            res.status(404).json({ message: 'No matching message found for the run.' });
+          }
+        } else {
+          console.log(`Run status: ${runResult.status}`);
+        }
+
+        attempts++;
+
+        if (attempts >= maxAttempts) {
+          clearInterval(polling); // Stop polling after max attempts
+          res.status(408).json({ error: 'Timeout: The operation is taking longer than expected. Please try again later.' });
+        }
+      } catch (err) {
+        console.error('Error checking thread status:', err);
+        clearInterval(polling); // Stop polling in case of error
+        res.status(500).json({ error: 'Failed to check thread status' });
+      }
+    };
+
+    // Start polling
+    const polling = setInterval(checkThreadStatus, intervalTime);
+
+  } catch (err) {
+    console.error('Error in requesting coach plan:', err);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+
 
   // API for users to upload profile picture
 app.post('/user/upload-profile-pic', 
@@ -726,22 +837,31 @@ app.get('/user/coaches', passport.authenticate('jwt', { session: false }), ensur
   try {
     const client = await pool.connect();
 
-    // Query to join users_coach with users table to fetch coach information
+    // Query to join users_coach with users and coach_info to fetch detailed coach information
     const query = `
-      SELECT uc.id as user_coach_id, uc.choosed_at, u.id as coach_id, u.email, u.phone
+      SELECT 
+        uc.id as user_coach_id, 
+        uc.choosed_at, 
+        u.id as coach_id, 
+        u.email, 
+        u.phone,
+        ci.info as coach_info  -- Fetch the coach info from coach_info table
       FROM users_coach uc
       JOIN users u ON uc.coach_id = u.id
+      JOIN coach_info ci ON u.id = ci.coach_id  -- Join with the coach_info table to get additional info
       WHERE uc.user_id = $1
     `;
     const result = await client.query(query, [req.user.id]);
     client.release();
 
+    // Respond with the coaches and their information
     return res.json({ coaches: result.rows });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to retrieve user coaches' });
   }
 });
+
 
 
 // Update Workout Info
