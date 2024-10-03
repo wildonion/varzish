@@ -81,7 +81,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"otp\": \"1911\",\n  \"phone\": \"09211686115\"\n}"
+							"raw": "{\n  \"otp\": \"6712\",\n  \"phone\": \"09211686115\"\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/validate-otp",
@@ -240,6 +240,94 @@
 					"response": []
 				},
 				{
+					"name": "This Must Gets Called By The Bank | Get Plan",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3MjcxNzk1MTIsImV4cCI6MTcyOTc3MTUxMn0.a2FeOPOHJD2vzd0Bu2eQx0tUId5m_0hJqPwyIyXPa5A",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/user/get-coach-plan?coach_id=2&level=advanced",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user",
+								"get-coach-plan"
+							],
+							"query": [
+								{
+									"key": "coach_id",
+									"value": "2"
+								},
+								{
+									"key": "level",
+									"value": "advanced"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "This Must Gets Called By User | Request Plan",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3MjcxNzk1MTIsImV4cCI6MTcyOTc3MTUxMn0.a2FeOPOHJD2vzd0Bu2eQx0tUId5m_0hJqPwyIyXPa5A",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"coach_id\": 2,\n    \"level\": \"advanced\",\n    \"message\": \"من ۲۸ سالمه یه برنامه واسه فیتنس مدلینگ میخوام وزن ۶۸ کیلو\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/user/request-coach-plan",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user",
+								"request-coach-plan"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "Get Coaches Above 3.5 Rating",
 					"request": {
 						"auth": {
@@ -267,6 +355,45 @@
 							"path": [
 								"user",
 								"coaches-above-3.5"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Coaches Plans By Level",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3MjcxNzk1MTIsImV4cCI6MTcyOTc3MTUxMn0.a2FeOPOHJD2vzd0Bu2eQx0tUId5m_0hJqPwyIyXPa5A",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/user/coach-plans-prices?level=advanced",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user",
+								"coach-plans-prices"
+							],
+							"query": [
+								{
+									"key": "level",
+									"value": "advanced"
+								}
 							]
 						}
 					},
@@ -514,7 +641,7 @@
 							"bearer": [
 								{
 									"key": "token",
-									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiYWNjZXNzIjowLCJpYXQiOjE3MjcwOTA4NzcsImV4cCI6MTcyOTY4Mjg3N30.2n_sddKgIkdOqYC2kbGGkDEXrzz45Ybs3X_I8800gd0",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3MjcxNzk1MTIsImV4cCI6MTcyOTc3MTUxMn0.a2FeOPOHJD2vzd0Bu2eQx0tUId5m_0hJqPwyIyXPa5A",
 									"type": "string"
 								}
 							]
@@ -740,6 +867,91 @@
 					"response": []
 				},
 				{
+					"name": "Train GPT Bot",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiYWNjZXNzIjoxLCJpYXQiOjE3MjcxNzg5NzQsImV4cCI6MTcyOTc3MDk3NH0.EeMZss2Aocs7_Et7fYRxW-863C7fx01xDtaTkGCdga8",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "/Users/wildonion/Desktop/routine.pdf"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/coach/gpt-conversation",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"coach",
+								"gpt-conversation"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Set Plan Price",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiYWNjZXNzIjoxLCJpYXQiOjE3MjcxNzg5NzQsImV4cCI6MTcyOTc3MDk3NH0.EeMZss2Aocs7_Et7fYRxW-863C7fx01xDtaTkGCdga8",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"level\": \"advanced\",\n    \"price\": 599000\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/coach/set-plan-price",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"coach",
+								"set-plan-price"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "Edit User Plan",
 					"request": {
 						"method": "PUT",
@@ -758,20 +970,14 @@
 							"raw": "{\n  \"movements\": \"Updated movements list\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/coach/edit-user-plan/:planId",
+							"raw": "{{base_url}}/coach/edit-user-plan/1",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"coach",
 								"edit-user-plan",
-								":planId"
-							],
-							"variable": [
-								{
-									"key": "planId",
-									"value": "1"
-								}
+								"1"
 							]
 						}
 					},

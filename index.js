@@ -10,6 +10,8 @@ const fs = require('fs');
 const {Smsir} = require('./smsir')
 const redis = require('redis'); // Import Redis
 const OpenAIApi = require("openai");
+const cors = require('cors');  // Import the cors package
+const paypingApi = require("varzikpayping");
 
 
 
@@ -44,13 +46,18 @@ const JwtStrategy = passportJWT.Strategy;
 const jwtSecret = 'geDteDd0Ltg2135FJYQ6rjNYHYkGQa70'; // Secret for JWT signing
 const smstoken = "";
 const openai_key = '';
+const paypingKey = "";
 
 const openai = new OpenAIApi({ apiKey: openai_key });
 
+const defaultClient = paypingApi.ApiClient.instance;
+const Bearer = defaultClient.authentications['Bearer'];
+Bearer.apiKey = paypingKey
 
 // Initialize Express app
 const app = express();
 app.use(bodyParser.json());
+app.use(cors());
 
 // PostgreSQL connection pool setup
 const pool = new Pool({
@@ -393,16 +400,173 @@ app.post('/coach/gpt-conversation',
     }
 });
 
+// API for a coach to set the price for plans based on student level
+app.post('/coach/set-plan-price', 
+  passport.authenticate('jwt', { session: false }), 
+  ensureCoachAccess, 
+  async (req, res) => {
+    const { level, price } = req.body;
+    const coach_id = req.user.id; // Assuming coach is authenticated via JWT
+
+    if (!level || !price) {
+      return res.status(400).json({ message: 'Level and price are required.' });
+    }
+
+    try {
+      const client = await pool.connect();
+
+      // Check if a record already exists for the given coach and level
+      const checkQuery = 'SELECT * FROM coach_plans_prices WHERE coach_id = $1 AND level = $2';
+      const result = await client.query(checkQuery, [coach_id, level]);
+
+      // Create a product item for the plan price via PayPing
+      var paypingApiInstance = new paypingApi.ProductApi();
+      var opts = {
+        'model': new paypingApi.ProductCreateViewModel({
+          "title": `برنامه تمرینی`,
+          "description": `پرداخت برنامه تمرینی در سطح ${level}`,
+          "amount": price,
+          "defineAmountByUser": false,
+          "quantity": 1,
+          "haveTax": true,
+          "unlimited": false,
+          "imageLink": ""
+        })
+      };
+
+      // Create a product and store the product code
+      paypingApiInstance.productCreate(opts, async function (error, data, response) {
+        if (error) {
+          console.error('PayPing product creation failed: ', error);
+          return res.status(500).json({ error: 'Failed to create PayPing product.' });
+        } else {
+          console.log('API called successfully. Returned product code: ', data);
+
+          product_code = data.code;
+
+          // create permalink
+          let paypingApiInstancePermaLink = new paypingApi.PermaLinkApi();
+          var optsPermaLink = {
+            'model': new paypingApi.PermanentCreateViewModel(
+              {
+                "code": "",
+                "productCode": product_code,
+                "redirectPage": `https://api.varzik.ir/user/get-coach-plan?coach_id=${coach_id}&level=${level}`,
+                "getAddress": true,
+                "mailerLiteListId": "",
+                "smsText": "",
+                "customDescriptionText": "",
+                "emailOption": 0,
+                "phoneOption": 0,
+                "nameOption": 0,
+                "customDesOption": 0,
+                "clientId": "",
+                "clientRefId": "",
+                "permanentType": 0,
+                "isMultiple": true
+                }
+            )
+          };
+
+          paypingApiInstancePermaLink.permaLinkCreate(optsPermaLink, async function (error, data, response) {
+            if (error) {
+              console.error('PayPing product creation failed: ', error);
+              return res.status(500).json({ error: 'Failed to create PayPing permalink.' });
+            } else {
+              console.log('API called successfully. Returned permalink code: ', data);
+              
+                let permalink_code = data.code;
+
+                paypingApiInstancePermaLink.permaLinkGet(permalink_code, async (error, data, response) => {
+                  if (error) { 
+                    console.error('PayPing getting permalink failed: ', error);
+                    return res.status(500).json({ error: 'Failed to create PayPing permalink.' });
+                  } else{
+                      let redirect_page = data.qrLink;
+
+                      // If a record exists, update the price and product_code
+                      if (result.rows.length > 0) {
+                        await client.query(
+                          'UPDATE coach_plans_prices SET price = $1, redirect_page = $2, permalink_code = $3, product_code = $4, updated_at = CURRENT_TIMESTAMP WHERE coach_id = $5 AND level = $6',
+                          [price, redirect_page, permalink_code, product_code, coach_id, level]
+                        );
+                        client.release();
+                        return res.json({ message: 'Plan price and product updated successfully.' });
+                      } else {
+                        // If no record exists, insert a new one with product_code
+                        await client.query(
+                          'INSERT INTO coach_plans_prices (coach_id, level, price, product_code, redirect_page, permalink_code) VALUES ($1, $2, $3, $4, $5, $6)',
+                          [coach_id, level, price, product_code, redirect_page, permalink_code]
+                        );
+                        client.release();
+                        return res.status(201).json({ message: 'Plan price and product set successfully.' });
+                      }
+
+                  }
+                });
+            }
+          });
+        }
+      });
+      
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Failed to set plan price.' });
+    }
+  }
+);
+
+// API to fetch all coaches' plan prices based on the level (user access)
+app.get('/user/coach-plans-prices', 
+  passport.authenticate('jwt', { session: false }), 
+  ensureUserAccess, 
+  async (req, res) => {
+    const { level } = req.query;  // Accept 'level' as a query parameter
+
+    if (!level) {
+      return res.status(400).json({ message: 'Level is required.' });
+    }
+
+    try {
+      const client = await pool.connect();
+
+      // Corrected query with proper column separation using commas
+      const query = `
+        SELECT cpp.coach_id, u.email as coach_email, cpp.level, cpp.price, 
+               cpp.product_code, cpp.permalink_code, cpp.redirect_page
+        FROM coach_plans_prices cpp
+        JOIN users u ON cpp.coach_id = u.id
+        WHERE cpp.level = $1
+      `;
+
+      const result = await client.query(query, [level]);
+
+      client.release();
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: 'No plans found for the specified level.' });
+      }
+
+      return res.json({ plans: result.rows });
+
+    } catch (err) {
+      console.error('Error fetching coach plans:', err);
+      return res.status(500).json({ error: 'Failed to fetch coach plans.' });
+    }
+  }
+);
 
 app.post('/user/request-coach-plan', passport.authenticate('jwt', { session: false }), ensureUserAccess, async (req, res) => {
-  const { coach_id, message } = req.body;
+
+  const { coach_id, level } = req.body;
   const user_id = req.user.id;  // Assuming the user is authenticated
   
-  if (!coach_id || !message) {
-    return res.status(400).json({ message: 'Coach ID and message are required.' });
+  if (!coach_id || !level) {
+    return res.status(400).json({ message: 'Coach ID and level are required.' });
   }
 
-  try {
+  try{
+
     const client = await pool.connect();
 
     // Step 1: Check if the user already has an active plan with the coach
@@ -414,6 +578,100 @@ app.post('/user/request-coach-plan', passport.authenticate('jwt', { session: fal
     if (planResult.rows.length > 0) {
       return res.status(400).json({ message: 'You already have an ongoing plan with this coach.' });
     }
+
+
+    // Fetch workout info from users_workout_info table
+    const workoutQuery = `
+      SELECT weight, age, height, sex, goal, level
+      FROM users_workout_info
+      WHERE user_id = $1
+    `;
+    const workoutResult = await client.query(workoutQuery, [user_id]);
+
+    if (workoutResult.rows.length === 0) {
+      return res.status(400).json({ message: 'Workout information not found for the user.' });
+    }
+
+    // Extract workout info and validate non-empty fields
+    const workoutInfo = workoutResult.rows[0];
+    const { weight, age, height, sex, goal } = workoutInfo;
+
+    if (!weight || !age || !height || !sex || !goal || !level) {
+      return res.status(400).json({ message: 'Workout information contains empty fields.' });
+    }
+
+    // Fetch medical info from users_medical_records table
+    const medicalQuery = `
+      SELECT content
+      FROM users_medical_records
+      WHERE user_id = $1
+    `;
+    const medicalResult = await client.query(medicalQuery, [user_id]);
+
+    if (medicalResult.rows.length === 0 || !medicalResult.rows[0].content) {
+      return res.status(400).json({ message: 'Medical information is empty or missing.' });
+    }
+
+    // find if the coach id has registered a plan price with this level or not
+    // if so then fetch the redirect page field
+    const planPriceResult = await client.query(
+      'SELECT * FROM coach_plans_prices WHERE level = $1 AND coach_id = $2',
+      [level, coach_id]
+    );
+
+    if (planPriceResult.rows.length > 0) {
+      let redirect_page = planPriceResult.rows[0].redirect_page;
+      return res.status(200).json({ redirect_page: redirect_page});
+    } else{
+      return res.status(400).json({ message: 'Coach has not registered a plan with this level' });
+    }
+    
+  } catch (err) {
+    console.error('Error in requesting coach plan:', err);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+
+});
+
+
+app.get('/user/get-coach-plan', passport.authenticate('jwt', { session: false }), ensureUserAccess, async (req, res) => {
+  const { coach_id, level } = req.query;
+  const user_id = req.user.id;  // Assuming the user is authenticated
+  
+  if (!coach_id || !level) {
+    return res.status(400).json({ message: 'Coach ID and level are required.' });
+  }
+
+  try {
+    const client = await pool.connect();
+
+      // Fetch workout info from users_workout_info table
+      const workoutQuery = `
+      SELECT weight, age, height, sex, goal, level
+      FROM users_workout_info
+      WHERE user_id = $1
+    `;
+    const workoutResult = await client.query(workoutQuery, [user_id]);
+
+    // Fetch medical info from users_medical_records table
+    const medicalQuery = `
+      SELECT content
+      FROM users_medical_records
+      WHERE user_id = $1
+    `;
+    const medicalResult = await client.query(medicalQuery, [user_id]);
+ 
+    // Extracting workout info
+    const workoutInfo = workoutResult.rows[0];
+    const { weight, age, height, sex, goal, level } = workoutInfo;
+
+    // Extracting medical info
+    const medicalInfo = medicalResult.rows[0].content;
+
+    let message = `من یک برنامه تمرینی بر اساس استایل این مربی میخواهم, اطلاعات من به صورت زیر میباشد: `;
+      message += `وزن: ${weight} کیلوگرم, سن: ${age}, قد: ${height} سانتیمتر, جنسیت: ${sex === 'male' ? 'مرد' : 'زن'}, `;
+      message += `هدف: ${goal}, سطح: ${level}. `;
+      message += `سوابق پزشکی: ${medicalInfo}.`;
 
     // Step 2: Find the assistant for the given coach
     const assistResult = await client.query('SELECT assist_id FROM gpt_coach_assistant WHERE coach_id = $1', [coach_id]);
@@ -491,10 +749,10 @@ app.post('/user/request-coach-plan', passport.authenticate('jwt', { session: fal
             const movementContent = matchingMessage.content.find(c => c.type === 'text').text.value;
 
             const insertPlanResult = await client.query(
-              `INSERT INTO users_plans (user_id, coach_id, movements, reg_at, updated_at) 
-               VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
-               RETURNING id, user_id, coach_id, movements, reg_at, updated_at`,
-              [user_id, coach_id, movementContent]
+              `INSERT INTO users_plans (user_id, coach_id, movements, requested_level, reg_at, updated_at) 
+               VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
+               RETURNING id, user_id, coach_id, movements, requested_level, reg_at, updated_at`,
+              [user_id, coach_id, movementContent, level]
             );
             
             // Retrieve the inserted plan details
@@ -715,7 +973,8 @@ app.get('/user/plans', passport.authenticate('jwt', { session: false }), ensureU
 
 // API to get all diets
 app.get('/user/get/diets', passport.authenticate('jwt', { session: false }), ensureUserAccess, async (req, res) => {
-    try {
+    
+  try {
       const client = await pool.connect();
       const result = await client.query('SELECT * FROM diets');
       client.release();
@@ -1200,7 +1459,6 @@ app.get('/user/wikis/:planId', passport.authenticate('jwt', { session: false }),
     }
 });
 
-// Check Token API
 // Check Token API - Fetch user info from users, users_workout_info, and users_medical_records
 app.get('/check-token', passport.authenticate('jwt', { session: false }), async (req, res) => {
   try {
@@ -1242,6 +1500,14 @@ app.get('/check-token', passport.authenticate('jwt', { session: false }), async 
     return res.status(500).json({ error: 'Token validation failed.' });
   }
 });
+
+
+
+
+// portal apis
+
+
+
 
   
 

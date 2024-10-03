@@ -26,6 +26,27 @@ CREATE TRIGGER "set_timestamp_users_medical_records" BEFORE UPDATE ON "public"."
 
 DELIMITER ;
 
+DROP TABLE IF EXISTS "coach_plans_prices";
+DROP SEQUENCE IF EXISTS coach_plans_prices_id_seq;
+CREATE SEQUENCE coach_plans_prices_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 1 CACHE 1;
+
+CREATE TABLE "public"."coach_plans_prices" (
+    "id" integer DEFAULT nextval('coach_plans_prices_id_seq') NOT NULL,
+    "coach_id" integer NOT NULL,
+    "level" character varying(50) NOT NULL,
+    "price" numeric(10,2) NOT NULL,
+    "created_at" timestamp DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" timestamp DEFAULT CURRENT_TIMESTAMP,
+    "product_code" character varying(255),
+    "permalink_code" character varying(255),
+    "redirect_page" text,
+    CONSTRAINT "coach_plans_prices_pkey" PRIMARY KEY ("id")
+) WITH (oids = false);
+
+TRUNCATE "coach_plans_prices";
+INSERT INTO "coach_plans_prices" ("id", "coach_id", "level", "price", "created_at", "updated_at", "product_code", "permalink_code", "redirect_page") VALUES
+(1,	2,	'advanced',	599000.00,	'2024-10-03 08:26:40.811983',	'2024-10-03 08:27:12.99382',	NULL,	NULL,	NULL);
+
 DROP TABLE IF EXISTS "coaches_ratings";
 DROP SEQUENCE IF EXISTS coaches_ratings_id_seq;
 CREATE SEQUENCE coaches_ratings_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 2 CACHE 1;
@@ -94,11 +115,11 @@ CREATE TABLE "public"."gpt_users_plans" (
 
 TRUNCATE "gpt_users_plans";
 INSERT INTO "gpt_users_plans" ("id", "user_id", "coach_id", "thread_id", "run_id", "message", "created_at") VALUES
-(1,	3,	2,	'thread_R72xxmD83YDSgHezLpvDPYu1',	'run_lAvd6jqZw0qVsP5DeA4CYpGm',	'من ۲۸ سالمه یه برنامه میخواستم و وزنم ۶۸ کیلوگرم هست برای فیتنس مدلینگ',	'2024-09-27 08:02:47.183094');
+(1,	3,	2,	'thread_R72xxmD83YDSgHezLpvDPYu1',	'run_KOnwEV9LFE3IZoJHMgPB7eyX',	'من ۲۸ سالمه یه برنامه میخواستم و وزنم ۶۸ کیلوگرم هست برای فیتنس مدلینگ',	'2024-09-27 08:02:47.183094');
 
 DROP TABLE IF EXISTS "users";
 DROP SEQUENCE IF EXISTS users_id_seq;
-CREATE SEQUENCE users_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 3 CACHE 1;
+CREATE SEQUENCE users_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 4 CACHE 1;
 
 CREATE TABLE "public"."users" (
     "id" integer DEFAULT nextval('users_id_seq') NOT NULL,
@@ -115,11 +136,12 @@ TRUNCATE "users";
 INSERT INTO "users" ("id", "email", "phone", "registered_time", "access") VALUES
 (1,	'ea_pain@yahoo.com',	'09211686115112',	'2024-09-21 13:30:59.496231',	2),
 (2,	'abarmardeatashyne@gmail.com',	'092116861151',	'2024-09-23 11:44:36.406105',	1),
-(3,	'marefimoghaddam@icloud.com',	'09211686115',	'2024-09-24 11:30:56.644755',	0);
+(3,	'marefimoghaddam@icloud.com',	'09211686115',	'2024-09-24 11:30:56.644755',	0),
+(4,	'sadail.am@gmail.com',	'09199277702',	'2024-09-30 12:32:04.034412',	0);
 
 DROP TABLE IF EXISTS "users_coach";
 DROP SEQUENCE IF EXISTS users_coach_id_seq;
-CREATE SEQUENCE users_coach_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 2 CACHE 1;
+CREATE SEQUENCE users_coach_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 3 CACHE 1;
 
 CREATE TABLE "public"."users_coach" (
     "id" integer DEFAULT nextval('users_coach_id_seq') NOT NULL,
@@ -132,7 +154,7 @@ CREATE TABLE "public"."users_coach" (
 
 TRUNCATE "users_coach";
 INSERT INTO "users_coach" ("id", "user_id", "coach_id", "choosed_at") VALUES
-(1,	3,	2,	'2024-09-27 09:33:27.423787');
+(1,	3,	2,	'2024-09-28 16:38:43.019221');
 
 DROP TABLE IF EXISTS "users_diets";
 DROP SEQUENCE IF EXISTS users_diets_id_seq;
@@ -153,7 +175,7 @@ INSERT INTO "users_diets" ("id", "user_id", "coach_id", "diet", "reg_at") VALUES
 
 DROP TABLE IF EXISTS "users_login";
 DROP SEQUENCE IF EXISTS users_login_id_seq;
-CREATE SEQUENCE users_login_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 24 CACHE 1;
+CREATE SEQUENCE users_login_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 49 CACHE 1;
 
 CREATE TABLE "public"."users_login" (
     "id" integer DEFAULT nextval('users_login_id_seq') NOT NULL,
@@ -165,9 +187,10 @@ CREATE TABLE "public"."users_login" (
 
 TRUNCATE "users_login";
 INSERT INTO "users_login" ("id", "user_id", "loggedin_at") VALUES
-(1,	1,	'2024-09-24 11:33:42.815528'),
 (7,	2,	'2024-09-24 11:56:02.661389'),
-(24,	3,	'2024-09-24 12:05:00.927331');
+(24,	3,	'2024-09-30 10:30:45.420171'),
+(32,	4,	'2024-10-01 06:04:46.734786'),
+(1,	1,	'2024-10-02 11:45:12.075022');
 
 DROP TABLE IF EXISTS "users_medical_records";
 DROP SEQUENCE IF EXISTS users_medical_records_id_seq;
@@ -214,7 +237,7 @@ DELIMITER ;
 
 DROP TABLE IF EXISTS "users_plans";
 DROP SEQUENCE IF EXISTS users_plans_id_seq;
-CREATE SEQUENCE users_plans_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 1 CACHE 1;
+CREATE SEQUENCE users_plans_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 2 CACHE 1;
 
 CREATE TABLE "public"."users_plans" (
     "id" integer DEFAULT nextval('users_plans_id_seq') NOT NULL,
@@ -224,12 +247,13 @@ CREATE TABLE "public"."users_plans" (
     "reg_at" timestamp DEFAULT CURRENT_TIMESTAMP,
     "updated_at" timestamp DEFAULT CURRENT_TIMESTAMP,
     "progress" numeric DEFAULT '0',
+    "requested_level" character varying(255),
     CONSTRAINT "users_plans_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
 
 TRUNCATE "users_plans";
-INSERT INTO "users_plans" ("id", "user_id", "coach_id", "movements", "reg_at", "updated_at", "progress") VALUES
-(1,	3,	2,	'### برنامه تمرینی فیتنس مدلینگ
+INSERT INTO "users_plans" ("id", "user_id", "coach_id", "movements", "reg_at", "updated_at", "progress", "requested_level") VALUES
+(2,	3,	2,	'### برنامه تمرینی فیتنس مدلینگ
 
 #### مشخصات شما:
 - سن: ۲۸ سال
@@ -314,9 +338,9 @@ INSERT INTO "users_plans" ("id", "user_id", "coach_id", "movements", "reg_at", "
 ### نکات مهم:
 - **تغذیه**: مصرف پروتئین بالا، میوه‌ها، سبزیجات، و آب کافی.
 - **خواب و استراحت**: خواب کافی برای بهبود ریکاوری و عملکرد بهتر.
-- **پیشگیری از آسیب‌ها**: در صورت وجود آسیب یا درد، با پزشک یا متخصص مشورت کنید【7:0†source】【4:0†source】.
+- **پیشگیری از آسیب‌ها**: در صورت وجود آسیب یا درد، با پزشک یا متخصص مشورت کنید【17:0†source】.
 
-این برنامه می‌تواند برای اهداف فیتنس مدلینگ شما مفید باشد. در صورت نیاز به تنظیمات خاص، با یک مربی مجرب مشورت کنید.',	'2024-09-27 09:33:27.399831',	'2024-09-27 09:33:27.399831',	0);
+این برنامه می‌تواند برای اهداف فیتنس مدلینگ شما مفید باشد. در صورت نیاز به تنظیمات خاص، با یک مربی مجرب مشورت کنید.',	'2024-09-28 16:38:43.003692',	'2024-10-03 15:11:50.709571',	100,	NULL);
 
 DELIMITER ;;
 
@@ -380,6 +404,8 @@ DELIMITER ;
 
 ALTER TABLE ONLY "public"."coach_info" ADD CONSTRAINT "coach_info_coach_id_fkey" FOREIGN KEY (coach_id) REFERENCES users(id) ON DELETE CASCADE NOT DEFERRABLE;
 
+ALTER TABLE ONLY "public"."coach_plans_prices" ADD CONSTRAINT "coach_plans_prices_coach_id_fkey" FOREIGN KEY (coach_id) REFERENCES users(id) NOT DEFERRABLE;
+
 ALTER TABLE ONLY "public"."coaches_ratings" ADD CONSTRAINT "coaches_ratings_coach_id_fkey" FOREIGN KEY (coach_id) REFERENCES users(id) ON DELETE CASCADE NOT DEFERRABLE;
 ALTER TABLE ONLY "public"."coaches_ratings" ADD CONSTRAINT "coaches_ratings_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE NOT DEFERRABLE;
 
@@ -401,4 +427,4 @@ ALTER TABLE ONLY "public"."users_plans" ADD CONSTRAINT "users_plans_user_id_fkey
 
 ALTER TABLE ONLY "public"."users_workout_info" ADD CONSTRAINT "users_workout_info_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE NOT DEFERRABLE;
 
--- 2024-09-27 09:47:13.570465+00
+-- 2024-10-03 16:02:26.524425+00
