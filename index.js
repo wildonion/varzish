@@ -400,7 +400,7 @@ app.post('/coach/gpt-conversation',
     }
 });
 
-// API for a coach to set the price for plans based on student level
+
 app.post('/coach/set-plan-price', 
   passport.authenticate('jwt', { session: false }), 
   ensureCoachAccess, 
@@ -419,95 +419,69 @@ app.post('/coach/set-plan-price',
       const checkQuery = 'SELECT * FROM coach_plans_prices WHERE coach_id = $1 AND level = $2';
       const result = await client.query(checkQuery, [coach_id, level]);
 
-      // Create a product item for the plan price via PayPing
-      var paypingApiInstance = new paypingApi.ProductApi();
-      var opts = {
-        'model': new paypingApi.ProductCreateViewModel({
-          "title": `برنامه تمرینی`,
-          "description": `پرداخت برنامه تمرینی در سطح ${level}`,
-          "amount": price,
-          "defineAmountByUser": false,
-          "quantity": 1,
-          "haveTax": true,
-          "unlimited": false,
-          "imageLink": ""
-        })
-      };
+      let product_code;
+      let permalink_code;
+      let redirect_page;
 
-      // Create a product and store the product code
-      paypingApiInstance.productCreate(opts, async function (error, data, response) {
-        if (error) {
-          console.error('PayPing product creation failed: ', error);
-          return res.status(500).json({ error: 'Failed to create PayPing product.' });
-        } else {
-          console.log('API called successfully. Returned product code: ', data);
+      // If a record exists, update the product on PayPing and update the DB
+      if (result.rows.length > 0) {
+        product_code = result.rows[0].product_code;
 
-          product_code = data.code;
+        const optsUpdate = { 
+          'model': new paypingApi.ProductEditViewModel({
+            "title": `برنامه تمرینی`,
+            "description": `پرداخت برنامه تمرینی در سطح ${level}`,
+            "amount": price,
+            "defineAmountByUser": false,
+            "quantity": 1,
+            "haveTax": true,
+            "unlimited": false,
+            "imageLink": ""
+          })
+        };
 
-          // create permalink
-          let paypingApiInstancePermaLink = new paypingApi.PermaLinkApi();
-          var optsPermaLink = {
-            'model': new paypingApi.PermanentCreateViewModel(
-              {
-                "code": "",
-                "productCode": product_code,
-                "redirectPage": `https://api.varzik.ir/user/get-coach-plan?coach_id=${coach_id}&level=${level}`,
-                "getAddress": true,
-                "mailerLiteListId": "",
-                "smsText": "",
-                "customDescriptionText": "",
-                "emailOption": 0,
-                "phoneOption": 0,
-                "nameOption": 0,
-                "customDesOption": 0,
-                "clientId": "",
-                "clientRefId": "",
-                "permanentType": 0,
-                "isMultiple": true
-                }
-            )
-          };
+        // Update the product in PayPing
+        await paypingApiInstance.productEdit(optsUpdate, async function(error) {
+          if (error) {
+            console.error('Product update failed:', error);
+            return res.status(500).json({ error: 'Failed to update product.' });
+          } else {
+            console.log('Product updated successfully.');
 
-          paypingApiInstancePermaLink.permaLinkCreate(optsPermaLink, async function (error, data, response) {
-            if (error) {
-              console.error('PayPing product creation failed: ', error);
-              return res.status(500).json({ error: 'Failed to create PayPing permalink.' });
-            } else {
-              console.log('API called successfully. Returned permalink code: ', data);
-              
-                let permalink_code = data.code;
+            // Create new permalink after product update
+            await createOrUpdatePermalink(client, result.rows[0], coach_id, level, price, res);
+          }
+        });
+      } else {
+        // If no record exists, create a new product
+        const optsCreate = {
+          'model': new paypingApi.ProductCreateViewModel({
+            "title": `برنامه تمرینی`,
+            "description": `پرداخت برنامه تمرینی در سطح ${level}`,
+            "amount": price,
+            "defineAmountByUser": false,
+            "quantity": 1,
+            "haveTax": true,
+            "unlimited": false,
+            "imageLink": ""
+          })
+        };
 
-                paypingApiInstancePermaLink.permaLinkGet(permalink_code, async (error, data, response) => {
-                  if (error) { 
-                    console.error('PayPing getting permalink failed: ', error);
-                    return res.status(500).json({ error: 'Failed to create PayPing permalink.' });
-                  } else{
-                      let redirect_page = data.qrLink;
+        // Create the product in PayPing
+        await paypingApiInstance.productCreate(optsCreate, async function(error, data) {
+          if (error) {
+            console.error('Product creation failed:', error);
+            return res.status(500).json({ error: 'Failed to create product.' });
+          } else {
+            console.log('Product created successfully. Product code:', data.code);
 
-                      // If a record exists, update the price and product_code
-                      if (result.rows.length > 0) {
-                        await client.query(
-                          'UPDATE coach_plans_prices SET price = $1, redirect_page = $2, permalink_code = $3, product_code = $4, updated_at = CURRENT_TIMESTAMP WHERE coach_id = $5 AND level = $6',
-                          [price, redirect_page, permalink_code, product_code, coach_id, level]
-                        );
-                        client.release();
-                        return res.json({ message: 'Plan price and product updated successfully.' });
-                      } else {
-                        // If no record exists, insert a new one with product_code
-                        await client.query(
-                          'INSERT INTO coach_plans_prices (coach_id, level, price, product_code, redirect_page, permalink_code) VALUES ($1, $2, $3, $4, $5, $6)',
-                          [coach_id, level, price, product_code, redirect_page, permalink_code]
-                        );
-                        client.release();
-                        return res.status(201).json({ message: 'Plan price and product set successfully.' });
-                      }
+            product_code = data.code;
 
-                  }
-                });
-            }
-          });
-        }
-      });
+            // Create permalink for the newly created product
+            await createOrUpdatePermalink(client, { product_code }, coach_id, level, price, res);
+          }
+        });
+      }
       
     } catch (err) {
       console.error(err);
@@ -515,6 +489,79 @@ app.post('/coach/set-plan-price',
     }
   }
 );
+
+// Helper function to create or update permalink
+async function createOrUpdatePermalink(client, planData, coach_id, level, price, res) {
+  try {
+    const paypingApiInstancePermaLink = new paypingApi.PermaLinkApi();
+    const product_code = planData.product_code;
+
+    // Create permalink on PayPing
+    const optsPermaLink = {
+      'model': new paypingApi.PermanentCreateViewModel({
+        "code": "",
+        "productCode": product_code,
+        "redirectPage": `https://api.varzik.ir/user/get-coach-plan?coach_id=${coach_id}&level=${level}`,
+        "getAddress": true,
+        "mailerLiteListId": "",
+        "smsText": "",
+        "customDescriptionText": "",
+        "emailOption": 0,
+        "phoneOption": 0,
+        "nameOption": 0,
+        "customDesOption": 0,
+        "clientId": "",
+        "clientRefId": "",
+        "permanentType": 0,
+        "isMultiple": true
+        })
+    };
+
+    paypingApiInstancePermaLink.permaLinkCreate(optsPermaLink, async function (error, data) {
+      if (error) {
+        console.error('PermaLink creation failed:', error);
+        return res.status(500).json({ error: 'Failed to create permalink.' });
+      } else {
+        console.log('PermaLink created successfully:', data.code);
+
+        const permalink_code = data.code;
+
+        // Fetch the redirect page using the permalink code
+        paypingApiInstancePermaLink.permaLinkGet(permalink_code, async function (error, data) {
+          if (error) {
+            console.error('Fetching permalink failed:', error);
+            return res.status(500).json({ error: 'Failed to fetch permalink.' });
+          } else {
+            const redirect_page = data.qrLink;
+
+            // Update or insert into coach_plans_prices based on existence of plan
+            if (planData.id) {
+              // Update existing plan
+              await client.query(
+                'UPDATE coach_plans_prices SET price = $1, redirect_page = $2, permalink_code = $3, updated_at = CURRENT_TIMESTAMP WHERE coach_id = $4 AND level = $5',
+                [price, redirect_page, permalink_code, coach_id, level]
+              );
+              client.release();
+              return res.json({ message: 'Plan price and product updated successfully.' });
+            } else {
+              // Insert new plan
+              await client.query(
+                'INSERT INTO coach_plans_prices (coach_id, level, price, product_code, redirect_page, permalink_code) VALUES ($1, $2, $3, $4, $5, $6)',
+                [coach_id, level, price, product_code, redirect_page, permalink_code]
+              );
+              client.release();
+              return res.status(201).json({ message: 'Plan price and product set successfully.' });
+            }
+          }
+        });
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to handle permalink creation.' });
+  }
+}
+
 
 // API to fetch all coaches' plan prices based on the level (user access)
 app.get('/user/coach-plans-prices', 
@@ -1500,14 +1547,6 @@ app.get('/check-token', passport.authenticate('jwt', { session: false }), async 
     return res.status(500).json({ error: 'Token validation failed.' });
   }
 });
-
-
-
-
-// portal apis
-
-
-
 
   
 
