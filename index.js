@@ -448,15 +448,20 @@ app.post('/coach/set-plan-price',
           } else {
             console.log('Product updated successfully.');
 
-            // Create new permalink after product update
-            await createOrUpdatePermalink(client, result.rows[0], coach_id, level, price, res);
+            // Update existing plan
+            await client.query(
+              'UPDATE coach_plans_prices SET price = $1, updated_at = CURRENT_TIMESTAMP WHERE coach_id = $2 AND level = $3',
+              [price, coach_id, level]
+            );
+            client.release();
+
           }
         });
       } else {
         // If no record exists, create a new product
         const optsCreate = {
           'model': new paypingApi.ProductCreateViewModel({
-            "title": `برنامه تمرینی`,
+            "title": `برنامه تمرینی ورزیک`,
             "description": `پرداخت برنامه تمرینی در سطح ${level}`,
             "amount": price,
             "defineAmountByUser": false,
@@ -489,7 +494,7 @@ app.post('/coach/set-plan-price',
     }
   }
 );
-
+ 
 // Helper function to create or update permalink
 async function createOrUpdatePermalink(client, planData, coach_id, level, price, res) {
   try {
@@ -534,16 +539,6 @@ async function createOrUpdatePermalink(client, planData, coach_id, level, price,
           } else {
             const redirect_page = data.qrLink;
 
-            // Update or insert into coach_plans_prices based on existence of plan
-            if (planData.id) {
-              // Update existing plan
-              await client.query(
-                'UPDATE coach_plans_prices SET price = $1, redirect_page = $2, permalink_code = $3, updated_at = CURRENT_TIMESTAMP WHERE coach_id = $4 AND level = $5',
-                [price, redirect_page, permalink_code, coach_id, level]
-              );
-              client.release();
-              return res.json({ message: 'Plan price and product updated successfully.' });
-            } else {
               // Insert new plan
               await client.query(
                 'INSERT INTO coach_plans_prices (coach_id, level, price, product_code, redirect_page, permalink_code) VALUES ($1, $2, $3, $4, $5, $6)',
@@ -551,7 +546,6 @@ async function createOrUpdatePermalink(client, planData, coach_id, level, price,
               );
               client.release();
               return res.status(201).json({ message: 'Plan price and product set successfully.' });
-            }
           }
         });
       }
