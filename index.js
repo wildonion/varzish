@@ -12,7 +12,7 @@ const redis = require('redis'); // Import Redis
 const OpenAIApi = require("openai");
 const cors = require('cors');  // Import the cors package
 const paypingApi = require("varzikpayping");
-
+const callbackPayPingUrl = "https://www.postalart.ir"
 
 
 // Initialize Redis client
@@ -408,20 +408,20 @@ app.post('/coach/set-plan-price',
     const { level, price } = req.body;
     const coach_id = req.user.id; // Assuming coach is authenticated via JWT
 
+
     if (!level || !price) {
       return res.status(400).json({ message: 'Level and price are required.' });
     }
 
     try {
       const client = await pool.connect();
+      const paypingApiInstance = new paypingApi.ProductApi();
 
       // Check if a record already exists for the given coach and level
       const checkQuery = 'SELECT * FROM coach_plans_prices WHERE coach_id = $1 AND level = $2';
       const result = await client.query(checkQuery, [coach_id, level]);
 
       let product_code;
-      let permalink_code;
-      let redirect_page;
 
       // If a record exists, update the product on PayPing and update the DB
       if (result.rows.length > 0) {
@@ -441,7 +441,7 @@ app.post('/coach/set-plan-price',
         };
 
         // Update the product in PayPing
-        await paypingApiInstance.productEdit(optsUpdate, async function(error) {
+        paypingApiInstance.productEdit(optsUpdate, async function(error) {
           if (error) {
             console.error('Product update failed:', error);
             return res.status(500).json({ error: 'Failed to update product.' });
@@ -458,33 +458,47 @@ app.post('/coach/set-plan-price',
           }
         });
       } else {
-        // If no record exists, create a new product
-        const optsCreate = {
-          'model': new paypingApi.ProductCreateViewModel({
-            "title": `برنامه تمرینی ورزیک`,
-            "description": `پرداخت برنامه تمرینی در سطح ${level}`,
-            "amount": price,
-            "defineAmountByUser": false,
-            "quantity": 1,
-            "haveTax": true,
-            "unlimited": false,
-            "imageLink": ""
-          })
+        console.log("found no product");
+        
+        const axios = require('axios');
+        let data = JSON.stringify({
+          "title": `برنامه تمرینی ورزیک`,
+          "description": `پرداخت برنامه تمرینی در سطح ${level}`,
+          "amount": price,
+          "defineAmountByUser": false,
+          "quantity": 1,
+          "haveTax": true,
+          "unlimited": false,
+          "imageLink": ""
+        });
+
+        let config = {
+          method: 'post',
+          maxBodyLength: Infinity,
+          url: 'https://api.payping.ir/v1/product',
+          headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${paypingKey}`
+          },
+          data : data
         };
 
-        // Create the product in PayPing
-        await paypingApiInstance.productCreate(optsCreate, async function(error, data) {
-          if (error) {
-            console.error('Product creation failed:', error);
-            return res.status(500).json({ error: 'Failed to create product.' });
-          } else {
-            console.log('Product created successfully. Product code:', data.code);
-
-            product_code = data.code;
-
-            // Create permalink for the newly created product
-            await createOrUpdatePermalink(client, { product_code }, coach_id, level, price, res);
-          }
+        axios.request(config)
+        .then(async (response) => {
+          console.log(JSON.stringify(response.data));
+          product_code = response.data.code;
+          let redirectUrl = "https://www.payping.ir/d/" + product_code;
+          // Insert new plan
+          await client.query(
+            'INSERT INTO coach_plans_prices (coach_id, level, price, product_code, redirect_page) VALUES ($1, $2, $3, $4, $5)',
+            [coach_id, level, price, product_code, redirectUrl]
+          );
+          client.release();
+          return res.status(201).json({ message: 'Plan price and product set successfully.' });
+        })
+        .catch((error) => {
+          console.log(error);
+          return res.status(500).json({ error: 'Failed to create product.' });
         });
       }
       
@@ -494,62 +508,113 @@ app.post('/coach/set-plan-price',
     }
   }
 );
- 
+
+
 // Helper function to create or update permalink
-async function createOrUpdatePermalink(client, planData, coach_id, level, price, res) {
+async function createPermalink(client, planData, coach_id, level, price, res) {
   try {
-    const paypingApiInstancePermaLink = new paypingApi.PermaLinkApi();
+    const axios = require('axios');
     const product_code = planData.product_code;
+    const price = planData.price;
 
-    // Create permalink on PayPing
-    const optsPermaLink = {
-      'model': new paypingApi.PermanentCreateViewModel({
-        "code": "",
-        "productCode": product_code,
-        "redirectPage": `https://api.varzik.ir/user/get-coach-plan?coach_id=${coach_id}&level=${level}`,
-        "getAddress": true,
-        "mailerLiteListId": "",
-        "smsText": "",
-        "customDescriptionText": "",
-        "emailOption": 0,
-        "phoneOption": 0,
-        "nameOption": 0,
-        "customDesOption": 0,
-        "clientId": "",
-        "clientRefId": "",
-        "permanentType": 0,
-        "isMultiple": true
+    console.log("product code is : ",  product_code);
+
+      let data = JSON.stringify({
+        "amount": price,
+        "returnUrl": `${callbackPayPingUrl}/user/get-coach-plan?coach_id=${coach_id}&level=${level}`,
+        "payerIdentity": "",
+        "payerName": "",
+        "description": "",
+        "clientRefId": ""
+      });
+
+      let config = {
+        method: 'post',
+        maxBodyLength: Infinity,
+        url: 'https://api.payping.ir/v2/pay',
+        headers: { 
+          'Content-Type': 'application/json',
+           'Authorization': `Bearer ${paypingKey}`
+        },
+        data : data
+      };
+
+      axios.request(config)
+      .then((response) => {
+        console.log(JSON.stringify(response.data));
+
+          let payCode = response.data.code;
+
+          console.log("pay code is: ", payCode);
+
+          let data = JSON.stringify({
+            "code": payCode,
+            "productCode": product_code,
+            "redirectPage": `${callbackPayPingUrl}/user/get-coach-plan?coach_id=${coach_id}&level=${level}`,
+            "getAddress": true,
+            "mailerLiteListId": "",
+            "smsText": "",
+            "customDescriptionText": "",
+            "emailOption": 0,
+            "phoneOption": 0,
+            "nameOption": 0,
+            "customDesOption": 0,
+            "clientId": "",
+            "clientRefId": "",
+            "permanentType": 0,
+            "isMultiple": true
+            });
+
+          let config = {
+            method: 'post',
+            maxBodyLength: Infinity,
+            url: 'https://api.payping.ir/v1/permalink',
+            headers: { 
+              'Content-Type': 'application/json', 
+              'Authorization': `Bearer ${paypingKey}`
+            },
+            data : data
+          };
+
+        axios.request(config)
+        .then((response) => {
+          console.log(JSON.stringify(response.data));
+          let permalink_code = response.data.code;
+
+            let config = {
+              method: 'get',
+              maxBodyLength: Infinity,
+              url: `https://api.payping.ir/v1/permalink/${permalink_code}`,
+              headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${paypingKey}`
+              },
+            };
+
+          axios.request(config)
+          .then((response) => async () => {
+            console.log(JSON.stringify(response.data));
+            let redirect_page = response.data.qrLink;
+            
+
+          })
+          .catch((error) => {
+            console.log(error);
+            return res.status(500).json({ error: 'Failed to get permalink.' });
+          });
+          
         })
-    };
-
-    paypingApiInstancePermaLink.permaLinkCreate(optsPermaLink, async function (error, data) {
-      if (error) {
-        console.error('PermaLink creation failed:', error);
-        return res.status(500).json({ error: 'Failed to create permalink.' });
-      } else {
-        console.log('PermaLink created successfully:', data.code);
-
-        const permalink_code = data.code;
-
-        // Fetch the redirect page using the permalink code
-        paypingApiInstancePermaLink.permaLinkGet(permalink_code, async function (error, data) {
-          if (error) {
-            console.error('Fetching permalink failed:', error);
-            return res.status(500).json({ error: 'Failed to fetch permalink.' });
-          } else {
-            const redirect_page = data.qrLink;
-
-              // Insert new plan
-              await client.query(
-                'INSERT INTO coach_plans_prices (coach_id, level, price, product_code, redirect_page, permalink_code) VALUES ($1, $2, $3, $4, $5, $6)',
-                [coach_id, level, price, product_code, redirect_page, permalink_code]
-              );
-              client.release();
-              return res.status(201).json({ message: 'Plan price and product set successfully.' });
-          }
+        .catch((error) => {
+          console.log(error);
+          return res.status(500).json({ error: 'Failed to create permalink.' });
         });
-      }
-    });
+
+      })
+      .catch((error) => {
+        console.log(error);
+        return res.status(500).json({ error: 'Failed to create a pay.' });
+      });
+
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to handle permalink creation.' });
@@ -1162,8 +1227,6 @@ app.get('/user/coaches', passport.authenticate('jwt', { session: false }), ensur
   }
 });
 
-
-
 // Update Workout Info
 // API to update or insert workout information
 app.put('/user/update-workout-info', passport.authenticate('jwt', { session: false }), ensureUserAccess, async (req, res) => {
@@ -1524,16 +1587,21 @@ app.get('/check-token', passport.authenticate('jwt', { session: false }), async 
     // Fetch medical info from users_medical_records table
     const medicalInfoResult = await client.query('SELECT content FROM users_medical_records WHERE user_id = $1', [req.user.id]);
     const medicalInfo = medicalInfoResult.rows[0] || {};
-    
+
+    // Fetch user profile picture from users_pics table
+    const profilePicResult = await client.query('SELECT pic_url FROM users_pics WHERE user_id = $1', [req.user.id]);
+    const profilePic = profilePicResult.rows[0]?.pic_url || null; // Handle if no profile picture exists
+
     client.release();
     
-    // Return combined user information
+    // Return combined user information including profile picture
     return res.json({
       message: 'Token is valid',
       user: {
         ...userInfo,
         workout_info: workoutInfo,
-        medical_info: medicalInfo
+        medical_info: medicalInfo,
+        profile_pic: profilePic // Add profile picture to the response
       }
     });
   } catch (err) {
@@ -1542,7 +1610,7 @@ app.get('/check-token', passport.authenticate('jwt', { session: false }), async 
   }
 });
 
-  
+
 
 // Protected route (requires authentication)
 app.get('/protected', passport.authenticate('jwt', { session: false }), (req, res) => {
