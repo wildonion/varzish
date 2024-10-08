@@ -11,8 +11,8 @@ const {Smsir} = require('./smsir')
 const redis = require('redis'); // Import Redis
 const OpenAIApi = require("openai");
 const cors = require('cors');  // Import the cors package
-const paypingApi = require("varzikpayping");
-const callbackPayPingUrl = "https://www.postalart.ir"
+// const paypingApi = require("varzikpayping");
+const callbackPayPingUrl = "https://www.postalart.ir" // https://api.varzik.ir
 
 
 // Initialize Redis client
@@ -49,10 +49,6 @@ const openai_key = '';
 const paypingKey = "";
 
 const openai = new OpenAIApi({ apiKey: openai_key });
-
-const defaultClient = paypingApi.ApiClient.instance;
-const Bearer = defaultClient.authentications['Bearer'];
-Bearer.apiKey = paypingKey
 
 // Initialize Express app
 const app = express();
@@ -415,8 +411,6 @@ app.post('/coach/set-plan-price',
 
     try {
       const client = await pool.connect();
-      const paypingApiInstance = new paypingApi.ProductApi();
-
       // Check if a record already exists for the given coach and level
       const checkQuery = 'SELECT * FROM coach_plans_prices WHERE coach_id = $1 AND level = $2';
       const result = await client.query(checkQuery, [coach_id, level]);
@@ -427,36 +421,8 @@ app.post('/coach/set-plan-price',
       if (result.rows.length > 0) {
         product_code = result.rows[0].product_code;
 
-        const optsUpdate = { 
-          'model': new paypingApi.ProductEditViewModel({
-            "title": `برنامه تمرینی`,
-            "description": `پرداخت برنامه تمرینی در سطح ${level}`,
-            "amount": price,
-            "defineAmountByUser": false,
-            "quantity": 1,
-            "haveTax": true,
-            "unlimited": false,
-            "imageLink": ""
-          })
-        };
 
-        // Update the product in PayPing
-        paypingApiInstance.productEdit(optsUpdate, async function(error) {
-          if (error) {
-            console.error('Product update failed:', error);
-            return res.status(500).json({ error: 'Failed to update product.' });
-          } else {
-            console.log('Product updated successfully.');
 
-            // Update existing plan
-            await client.query(
-              'UPDATE coach_plans_prices SET price = $1, updated_at = CURRENT_TIMESTAMP WHERE coach_id = $2 AND level = $3',
-              [price, coach_id, level]
-            );
-            client.release();
-
-          }
-        });
       } else {
         console.log("found no product");
         
@@ -774,7 +740,7 @@ app.get('/user/get-coach-plan', passport.authenticate('jwt', { session: false })
     // Extracting medical info
     const medicalInfo = medicalResult.rows[0].content;
 
-    let message = `من یک برنامه تمرینی بر اساس استایل این مربی میخواهم, اطلاعات من به صورت زیر میباشد: `;
+    let message = `من یک برنامه تمرینی بر اساس استایل این مربی میخواهم, اطلاعات من به صورت زیر میباشد همچنین برنامه را در قالب یک جدول ارائه بده: `;
       message += `وزن: ${weight} کیلوگرم, سن: ${age}, قد: ${height} سانتیمتر, جنسیت: ${sex === 'male' ? 'مرد' : 'زن'}, `;
       message += `هدف: ${goal}, سطح: ${level}. `;
       message += `سوابق پزشکی: ${medicalInfo}.`;
