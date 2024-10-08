@@ -1,4 +1,12 @@
 -- Adminer 4.8.1 PostgreSQL 16.2 (Ubuntu 16.2-1.pgdg22.04+1) dump
+CREATE OR REPLACE FUNCTION update_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+   NEW.updated_at = now();
+   RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 
 DROP TABLE IF EXISTS "coach_info";
 DROP SEQUENCE IF EXISTS coach_info_id_seq;
@@ -231,6 +239,19 @@ INSERT INTO "users_pics" ("id", "user_id", "pic_url", "updated_at") VALUES
 
 DELIMITER ;;
 
+CREATE OR REPLACE FUNCTION update_users_pics_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+   NEW.updated_at = now();
+   RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_users_pics_timestamp
+BEFORE UPDATE ON public.users_pics
+FOR EACH ROW
+EXECUTE FUNCTION update_users_pics_timestamp();
+
 CREATE TRIGGER "update_users_pics_updated_at" BEFORE UPDATE ON "public"."users_pics" FOR EACH ROW EXECUTE FUNCTION update_users_pics_timestamp();;
 
 DELIMITER ;
@@ -344,6 +365,19 @@ INSERT INTO "users_plans" ("id", "user_id", "coach_id", "movements", "reg_at", "
 
 DELIMITER ;;
 
+CREATE OR REPLACE FUNCTION update_users_plans_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+   NEW.updated_at = now();
+   RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_users_plans_timestamp
+BEFORE UPDATE ON public.users_plans
+FOR EACH ROW
+EXECUTE FUNCTION update_users_plans_timestamp();
+
 CREATE TRIGGER "update_users_plans_updated_at" BEFORE UPDATE ON "public"."users_plans" FOR EACH ROW EXECUTE FUNCTION update_users_plans_timestamp();;
 
 DELIMITER ;
@@ -398,9 +432,23 @@ INSERT INTO "wiki" ("id", "plan_id", "video_url", "title", "created_at", "update
 
 DELIMITER ;;
 
-CREATE TRIGGER "update_wiki_updated_at" BEFORE UPDATE ON "public"."wiki" FOR EACH ROW EXECUTE FUNCTION update_wiki_timestamp();;
-
 DELIMITER ;
+
+CREATE OR REPLACE FUNCTION update_wiki_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+   NEW.updated_at = now();
+   RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_wiki_timestamp
+BEFORE UPDATE ON public.wiki
+FOR EACH ROW
+EXECUTE FUNCTION update_wiki_timestamp();
+
+
+CREATE TRIGGER "update_wiki_updated_at" BEFORE UPDATE ON "public"."wiki" FOR EACH ROW EXECUTE FUNCTION update_wiki_timestamp();;
 
 ALTER TABLE ONLY "public"."coach_info" ADD CONSTRAINT "coach_info_coach_id_fkey" FOREIGN KEY (coach_id) REFERENCES users(id) ON DELETE CASCADE NOT DEFERRABLE;
 
