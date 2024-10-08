@@ -312,7 +312,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"coach_id\": 2,\n    \"level\": \"advanced\",\n    \"message\": \"من ۲۸ سالمه یه برنامه واسه فیتنس مدلینگ میخوام وزن ۶۸ کیلو\"\n}"
+							"raw": "{\n    \"coach_id\": 2,\n    \"level\": \"advanced\"\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/user/request-coach-plan",
@@ -931,7 +931,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"level\": \"advanced\",\n    \"price\": 599000\n}",
+							"raw": "{\n    \"level\": \"advanced\",\n    \"price\": 400000\n}",
 							"options": {
 								"raw": {
 									"language": "json"
