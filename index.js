@@ -11,8 +11,9 @@ const {Smsir} = require('./smsir')
 const redis = require('redis'); // Import Redis
 const OpenAIApi = require("openai");
 const cors = require('cors');  // Import the cors package
+const { toBigInt } = require('ethers');
 // const paypingApi = require("varzikpayping");
-const callbackPayPingUrl = "https://www.postalart.ir" // https://api.varzik.ir
+const callbackPayPingUrl = "https://www.postalart.ir" // https://varzik.ir
 
 
 // Initialize Redis client
@@ -47,6 +48,8 @@ const jwtSecret = 'geDteDd0Ltg2135FJYQ6rjNYHYkGQa70'; // Secret for JWT signing
 const smstoken = "";
 const openai_key = '';
 const paypingKey = "";
+
+
 
 const openai = new OpenAIApi({ apiKey: openai_key });
 
@@ -187,7 +190,7 @@ const jwtOptions = {
 const strategy = new JwtStrategy(jwtOptions, async (payload, done) => {
   try {
     const client = await pool.connect();
-    const result = await client.query('SELECT id, email, phone, access FROM users WHERE id = $1', [payload.id]);
+    const result = await client.query('SELECT id, email, username, phone, access FROM users WHERE id = $1', [payload.id]);
     client.release();
 
     const user = result.rows[0];
@@ -404,68 +407,35 @@ app.post('/coach/set-plan-price',
     const { level, price } = req.body;
     const coach_id = req.user.id; // Assuming coach is authenticated via JWT
 
-
     if (!level || !price) {
       return res.status(400).json({ message: 'Level and price are required.' });
     }
 
     try {
       const client = await pool.connect();
+      
       // Check if a record already exists for the given coach and level
       const checkQuery = 'SELECT * FROM coach_plans_prices WHERE coach_id = $1 AND level = $2';
       const result = await client.query(checkQuery, [coach_id, level]);
 
-      let product_code;
-
-      // If a record exists, update the product on PayPing and update the DB
       if (result.rows.length > 0) {
-        product_code = result.rows[0].product_code;
+        // If a record exists, update the price for that level
+        const product_code = result.rows[0].product_code;
 
+        // Update the price in the database
+        const updateQuery = 'UPDATE coach_plans_prices SET price = $1 WHERE coach_id = $2 AND level = $3';
+        await client.query(updateQuery, [price, coach_id, level]);
 
-
+        client.release();
+        return res.status(200).json({ message: 'Price updated successfully.' });
       } else {
-        console.log("found no product");
-        
-        const axios = require('axios');
-        let data = JSON.stringify({
-          "title": `برنامه تمرینی ورزیک`,
-          "description": `پرداخت برنامه تمرینی در سطح ${level}`,
-          "amount": price,
-          "defineAmountByUser": false,
-          "quantity": 1,
-          "haveTax": true,
-          "unlimited": false,
-          "imageLink": ""
-        });
-
-        let config = {
-          method: 'post',
-          maxBodyLength: Infinity,
-          url: 'https://api.payping.ir/v1/product',
-          headers: { 
-            'Content-Type': 'application/json', 
-            'Authorization': `Bearer ${paypingKey}`
-          },
-          data : data
-        };
-
-        axios.request(config)
-        .then(async (response) => {
-          console.log(JSON.stringify(response.data));
-          product_code = response.data.code;
-          let redirectUrl = "https://www.payping.ir/d/" + product_code;
-          // Insert new plan
-          await client.query(
-            'INSERT INTO coach_plans_prices (coach_id, level, price, product_code, redirect_page) VALUES ($1, $2, $3, $4, $5)',
-            [coach_id, level, price, product_code, redirectUrl]
-          );
-          client.release();
-          return res.status(201).json({ message: 'Plan price and product set successfully.' });
-        })
-        .catch((error) => {
-          console.log(error);
-          return res.status(500).json({ error: 'Failed to create product.' });
-        });
+        console.log("No product found, inserting new record.");
+        await client.query(
+          'INSERT INTO coach_plans_prices (coach_id, level, price) VALUES ($1, $2, $3)',
+          [coach_id, level, price]
+        );
+        client.release();
+        return res.status(201).json({ message: 'Plan price and product set successfully.' });
       }
       
     } catch (err) {
@@ -474,118 +444,6 @@ app.post('/coach/set-plan-price',
     }
   }
 );
-
-
-// Helper function to create or update permalink
-async function createPermalink(client, planData, coach_id, level, price, res) {
-  try {
-    const axios = require('axios');
-    const product_code = planData.product_code;
-    const price = planData.price;
-
-    console.log("product code is : ",  product_code);
-
-      let data = JSON.stringify({
-        "amount": price,
-        "returnUrl": `${callbackPayPingUrl}/user/get-coach-plan?coach_id=${coach_id}&level=${level}`,
-        "payerIdentity": "",
-        "payerName": "",
-        "description": "",
-        "clientRefId": ""
-      });
-
-      let config = {
-        method: 'post',
-        maxBodyLength: Infinity,
-        url: 'https://api.payping.ir/v2/pay',
-        headers: { 
-          'Content-Type': 'application/json',
-           'Authorization': `Bearer ${paypingKey}`
-        },
-        data : data
-      };
-
-      axios.request(config)
-      .then((response) => {
-        console.log(JSON.stringify(response.data));
-
-          let payCode = response.data.code;
-
-          console.log("pay code is: ", payCode);
-
-          let data = JSON.stringify({
-            "code": payCode,
-            "productCode": product_code,
-            "redirectPage": `${callbackPayPingUrl}/user/get-coach-plan?coach_id=${coach_id}&level=${level}`,
-            "getAddress": true,
-            "mailerLiteListId": "",
-            "smsText": "",
-            "customDescriptionText": "",
-            "emailOption": 0,
-            "phoneOption": 0,
-            "nameOption": 0,
-            "customDesOption": 0,
-            "clientId": "",
-            "clientRefId": "",
-            "permanentType": 0,
-            "isMultiple": true
-            });
-
-          let config = {
-            method: 'post',
-            maxBodyLength: Infinity,
-            url: 'https://api.payping.ir/v1/permalink',
-            headers: { 
-              'Content-Type': 'application/json', 
-              'Authorization': `Bearer ${paypingKey}`
-            },
-            data : data
-          };
-
-        axios.request(config)
-        .then((response) => {
-          console.log(JSON.stringify(response.data));
-          let permalink_code = response.data.code;
-
-            let config = {
-              method: 'get',
-              maxBodyLength: Infinity,
-              url: `https://api.payping.ir/v1/permalink/${permalink_code}`,
-              headers: { 
-                'Content-Type': 'application/json', 
-                'Authorization': `Bearer ${paypingKey}`
-              },
-            };
-
-          axios.request(config)
-          .then((response) => async () => {
-            console.log(JSON.stringify(response.data));
-            let redirect_page = response.data.qrLink;
-            
-
-          })
-          .catch((error) => {
-            console.log(error);
-            return res.status(500).json({ error: 'Failed to get permalink.' });
-          });
-          
-        })
-        .catch((error) => {
-          console.log(error);
-          return res.status(500).json({ error: 'Failed to create permalink.' });
-        });
-
-      })
-      .catch((error) => {
-        console.log(error);
-        return res.status(500).json({ error: 'Failed to create a pay.' });
-      });
-
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: 'Failed to handle permalink creation.' });
-  }
-}
 
 
 // API to fetch all coaches' plan prices based on the level (user access)
@@ -632,6 +490,7 @@ app.post('/user/request-coach-plan', passport.authenticate('jwt', { session: fal
 
   const { coach_id, level } = req.body;
   const user_id = req.user.id;  // Assuming the user is authenticated
+  const username = req.user.username;
   
   if (!coach_id || !level) {
     return res.status(400).json({ message: 'Coach ID and level are required.' });
@@ -692,8 +551,36 @@ app.post('/user/request-coach-plan', passport.authenticate('jwt', { session: fal
     );
 
     if (planPriceResult.rows.length > 0) {
-      let redirect_page = planPriceResult.rows[0].redirect_page;
-      return res.status(200).json({ redirect_page: redirect_page});
+      const axios = require('axios');
+      let data = JSON.stringify({
+        "amount": parseInt(planPriceResult.rows[0].price),
+        "returnUrl": `${callbackPayPingUrl}/paymentStatus?coach_id=${coach_id}&user_id=${user_id}&level=${level}`,
+        "payerIdentity": req.user.email,
+        "payerName": username,
+        "description": `خرید برنامه تمرینی در سطح ${level}`,
+        "clientRefId": ""
+      });
+
+      let config = {
+        method: 'post',
+        maxBodyLength: Infinity,
+        url: 'https://api.payping.ir/v2/pay',
+        headers: { 
+          'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${paypingKey}`
+        },
+        data : data
+      };
+
+      axios.request(config)
+      .then((response) => {
+        console.log(JSON.stringify(response.data));
+        return res.status(200).json({ code: response.data.code}); // front must redirect users to page: https://api.payping.ir/v2/pay/gotoipg/{code}
+      })
+      .catch((error) => {
+        console.log(error)
+        return res.status(400).json({ message: 'cant create pay object', });
+      });
     } else{
       return res.status(400).json({ message: 'Coach has not registered a plan with this level' });
     }
@@ -706,13 +593,30 @@ app.post('/user/request-coach-plan', passport.authenticate('jwt', { session: fal
 });
 
 
-app.get('/user/get-coach-plan', passport.authenticate('jwt', { session: false }), ensureUserAccess, async (req, res) => {
-  const { coach_id, level } = req.query;
-  const user_id = req.user.id;  // Assuming the user is authenticated
+// this would gets called by the front end after successful payment
+app.post('/user/get-coach-plan', passport.authenticate('jwt', { session: false }), ensureUserAccess, async (req, res) => {
   
-  if (!coach_id || !level) {
-    return res.status(400).json({ message: 'Coach ID and level are required.' });
-  }
+    const { coach_id, level } = req.body;
+    const user_id = req.user.id;  // Assuming the user is authenticated
+    
+    if (!coach_id || !level) {
+      return res.status(400).json({ message: 'Coach ID and level are required.' });
+    }
+
+    // step1) complete the payment using POST /v2/pay/verify api
+    // curl -X POST https://api.payping.ir/v2/pay/verify
+    // 'H 'Accept: application/json-
+    // 'H 'Authorization: bearer YOUR_TOKEN-
+    // 'H 'Content-Type: application/json-
+    // '} d-
+    // ,"refId": "string"
+    // "amount": int
+
+    // step2) if the status was 200 stor info in users_payments
+    // step3) execute following logics
+    // 
+    // ...
+  
 
   try {
     const client = await pool.connect();
@@ -740,7 +644,7 @@ app.get('/user/get-coach-plan', passport.authenticate('jwt', { session: false })
     // Extracting medical info
     const medicalInfo = medicalResult.rows[0].content;
 
-    let message = `من یک برنامه تمرینی بر اساس استایل این مربی میخواهم, اطلاعات من به صورت زیر میباشد همچنین برنامه را در قالب یک جدول ارائه بده: `;
+    let message = ` من یک برنامه تمرینی بر اساس استایل این مربی میخواهم, اطلاعات من به صورت زیر میباشد همچنین فقط برنامه را در قالب یک جدول با استایل markdown ارائه بده و توضیح اضافه ی دیگری نباشد: `;
       message += `وزن: ${weight} کیلوگرم, سن: ${age}, قد: ${height} سانتیمتر, جنسیت: ${sex === 'male' ? 'مرد' : 'زن'}, `;
       message += `هدف: ${goal}, سطح: ${level}. `;
       message += `سوابق پزشکی: ${medicalInfo}.`;
@@ -755,38 +659,30 @@ app.get('/user/get-coach-plan', passport.authenticate('jwt', { session: false })
     const assist_id = assistResult.rows[0].assist_id;
 
     // Step 3: Check if the user already has an existing thread with the coach
-    let thread_id;
-    const threadResult = await client.query(
-      'SELECT thread_id FROM gpt_users_plans WHERE user_id = $1 AND coach_id = $2',
-      [user_id, coach_id]
+    const thread = await openai.beta.threads.create({
+      messages: [
+        {
+          role: "user",
+          content: message,
+        },
+      ],
+    });
+
+    let thread_id = thread.id;
+
+    // Insert the new thread into the gpt_users_plans table
+    await client.query(
+      'INSERT INTO gpt_users_plans (user_id, coach_id, thread_id, message) VALUES ($1, $2, $3, $4)',
+      [user_id, coach_id, thread_id, message]
     );
-
-    if (threadResult.rows.length > 0) {
-      thread_id = threadResult.rows[0].thread_id;
-    } else {
-      // Step 4: Create a new thread if no thread exists
-      const thread = await openai.beta.threads.create({
-        messages: [
-          {
-            role: "user",
-            content: message,
-          },
-        ],
-      });
-      thread_id = thread.id;
-
-      // Insert the new thread into the gpt_users_plans table
-      await client.query(
-        'INSERT INTO gpt_users_plans (user_id, coach_id, thread_id, message) VALUES ($1, $2, $3, $4)',
-        [user_id, coach_id, thread_id, message]
-      );
-    }
 
     // Step 5: Create a new run for the existing or new thread
     const run = await openai.beta.threads.runs.create(
       thread_id,
       { assistant_id: assist_id }
     );
+
+    console.log("created a new run for thread >", run);
 
     const run_id = run.id;
 
@@ -807,6 +703,8 @@ app.get('/user/get-coach-plan', passport.authenticate('jwt', { session: false })
           thread_id,
           run_id
         );
+
+        console.log("runResult >", runResult);
 
         if (runResult.status === 'completed') {
           // Step 8: Fetch the thread messages when the run is completed
@@ -997,6 +895,61 @@ app.post('/coach/upload-profile-pic',
         }
     }
 );
+
+
+app.post('/coach/update-username', 
+  passport.authenticate('jwt', { session: false }), 
+  ensureCoachAccess, 
+  async (req, res) => {
+    
+    let userId = req.user.id;
+    const {username} = req.body;
+    if (!username){
+      return res.status(400).json({ message: 'username must not be empty' });
+    }
+      
+    try {
+          const client = await pool.connect();
+          await client.query(
+              'UPDATE users set username = $1 where id = $2',
+              [username, userId]
+          );
+          client.release();
+
+          return res.json({ message: 'username uploaded successfully' });
+      } catch (err) {
+          console.error(err);
+          return res.status(500).json({ error: 'Failed to update username' });
+      }
+  }
+);
+
+app.post('/user/update-username', 
+  passport.authenticate('jwt', { session: false }), 
+  ensureUserAccess, 
+  async (req, res) => {
+    
+    let userId = req.user.id;
+    const {username} = req.body;
+    if (!username){
+      return res.status(400).json({ message: 'username must not be empty' });
+    }
+      
+    try {
+      const client = await pool.connect();
+      await client.query(
+          'UPDATE users SET username = $1 WHERE id = $2',
+          [username, userId]
+      );
+      client.release();
+  
+      return res.json({ message: 'Username updated successfully' });
+  } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Failed to update username' });
+  }
+  }
+);
   
   // API to edit user plans (coach only)
   app.put('/coach/edit-user-plan/:planId', passport.authenticate('jwt', { session: false }), ensureCoachAccess, async (req, res) => {
@@ -1014,7 +967,6 @@ app.post('/coach/upload-profile-pic',
       return res.json({ message: 'User plan updated successfully' });
     } catch (err) {
       console.error(err);
-      return res.status(500).json({ error: 'Failed to update user plan' });
     }
   });
   
@@ -1529,6 +1481,7 @@ app.get('/user/wikis/:planId', passport.authenticate('jwt', { session: false }),
     }
 });
 
+
 // Check Token API - Fetch user info from users, users_workout_info, and users_medical_records
 app.get('/check-token', passport.authenticate('jwt', { session: false }), async (req, res) => {
   try {
@@ -1543,7 +1496,7 @@ app.get('/check-token', passport.authenticate('jwt', { session: false }), async 
     }
     
     // Fetch user info from users table
-    const userInfoResult = await client.query('SELECT id, email, phone, access FROM users WHERE id = $1', [req.user.id]);
+    const userInfoResult = await client.query('SELECT id, username, email, phone, access FROM users WHERE id = $1', [req.user.id]);
     const userInfo = userInfoResult.rows[0];
     
     // Fetch workout info from users_workout_info table

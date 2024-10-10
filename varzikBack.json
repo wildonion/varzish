@@ -81,7 +81,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"otp\": \"6712\",\n  \"phone\": \"09211686115\"\n}"
+							"raw": "{\n  \"otp\": \"2857\",\n  \"phone\": \"09211686115\"\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/validate-otp",
@@ -198,6 +198,48 @@
 					"response": []
 				},
 				{
+					"name": "Update Username",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3MjcxNzk1MTIsImV4cCI6MTcyOTc3MTUxMn0.a2FeOPOHJD2vzd0Bu2eQx0tUId5m_0hJqPwyIyXPa5A",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"wildonion\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/user/update-username",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user",
+								"update-username"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "Rate a Coach",
 					"request": {
 						"auth": {
@@ -240,7 +282,7 @@
 					"response": []
 				},
 				{
-					"name": "This Must Gets Called By The Bank | Get Plan",
+					"name": "Get Plan | Call After Successful Payment",
 					"request": {
 						"auth": {
 							"type": "bearer",
@@ -252,7 +294,7 @@
 								}
 							]
 						},
-						"method": "GET",
+						"method": "POST",
 						"header": [
 							{
 								"key": "Authorization",
@@ -263,31 +305,30 @@
 								"value": "application/json"
 							}
 						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"coach_id\": 2,\n    \"level\": \"advanced\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
 						"url": {
-							"raw": "{{base_url}}/user/get-coach-plan?coach_id=2&level=advanced",
+							"raw": "{{base_url}}/user/get-coach-plan",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"user",
 								"get-coach-plan"
-							],
-							"query": [
-								{
-									"key": "coach_id",
-									"value": "2"
-								},
-								{
-									"key": "level",
-									"value": "advanced"
-								}
 							]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "This Must Gets Called By User | Request Plan",
+					"name": "Request Plan | Call to Create Pay Page",
 					"request": {
 						"auth": {
 							"type": "bearer",
@@ -368,7 +409,7 @@
 							"bearer": [
 								{
 									"key": "token",
-									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3MjcxNzk1MTIsImV4cCI6MTcyOTc3MTUxMn0.a2FeOPOHJD2vzd0Bu2eQx0tUId5m_0hJqPwyIyXPa5A",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiYWNjZXNzIjowLCJpYXQiOjE3Mjg0Nzg4MDEsImV4cCI6MTczMTA3MDgwMX0.vp5OuR478IKQ-9JyHoPRhD9_75AkbYJxEOKTpHW6qds",
 									"type": "string"
 								}
 							]
@@ -931,7 +972,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"level\": \"advanced\",\n    \"price\": 400000\n}",
+							"raw": "{\n    \"level\": \"advanced\",\n    \"price\": 1000\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -1086,6 +1127,48 @@
 								"coach",
 								"user-info",
 								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Username",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiYWNjZXNzIjoxLCJpYXQiOjE3MjcxNzg5NzQsImV4cCI6MTcyOTc3MDk3NH0.EeMZss2Aocs7_Et7fYRxW-863C7fx01xDtaTkGCdga8",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"wildonion\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/coach/update-username",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"coach",
+								"update-username"
 							]
 						}
 					},
@@ -1284,7 +1367,7 @@
 	"variable": [
 		{
 			"key": "base_url",
-			"value": "http://localhost:3000"
+			"value": "https://api.varzik.ir"
 		}
 	]
 }

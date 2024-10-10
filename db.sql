@@ -475,4 +475,18 @@ ALTER TABLE ONLY "public"."users_plans" ADD CONSTRAINT "users_plans_user_id_fkey
 
 ALTER TABLE ONLY "public"."users_workout_info" ADD CONSTRAINT "users_workout_info_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE NOT DEFERRABLE;
 
--- 2024-10-03 16:02:26.524425+00
+DROP TABLE IF EXISTS "users_payments";
+CREATE TABLE "public"."users_payments" (
+    "user_id" integer NOT NULL,
+    "coach_id" integer NOT NULL,
+    "level" character varying(50) NOT NULL,
+    "price" numeric(10,2) NOT NULL,
+    "refid" text NOT NULL,
+    "cardnumber" text NOT NULL,
+    "cardhashpan" text NOT NULL,
+    "paid_at" timestamp DEFAULT CURRENT_TIMESTAMP
+) WITH (oids = false);
+
+TRUNCATE "users_payments";
+
+-- 2024-10-10 09:29:36.700177+00
