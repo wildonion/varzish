@@ -419,8 +419,6 @@ app.post('/coach/set-plan-price',
       const result = await client.query(checkQuery, [coach_id, level]);
 
       if (result.rows.length > 0) {
-        // If a record exists, update the price for that level
-        const product_code = result.rows[0].product_code;
 
         // Update the price in the database
         const updateQuery = 'UPDATE coach_plans_prices SET price = $1 WHERE coach_id = $2 AND level = $3';
@@ -460,12 +458,14 @@ app.get('/user/coach-plans-prices',
     try {
       const client = await pool.connect();
 
-      // Corrected query with proper column separation using commas
+      // Updated query to join users_pics table and get pic_url
       const query = `
-        SELECT cpp.coach_id, u.email as coach_email, cpp.level, cpp.price, 
+        SELECT cpp.coach_id, u.email as coach_email, u.username as coach_username, 
+               up.pic_url as coach_profile_pic, cpp.level, cpp.price, 
                cpp.product_code, cpp.permalink_code, cpp.redirect_page
         FROM coach_plans_prices cpp
         JOIN users u ON cpp.coach_id = u.id
+        LEFT JOIN users_pics up ON u.id = up.user_id
         WHERE cpp.level = $1
       `;
 
@@ -485,6 +485,7 @@ app.get('/user/coach-plans-prices',
     }
   }
 );
+
 
 app.post('/user/request-coach-plan', passport.authenticate('jwt', { session: false }), ensureUserAccess, async (req, res) => {
 
@@ -603,6 +604,7 @@ app.post('/user/get-coach-plan', passport.authenticate('jwt', { session: false }
       return res.status(400).json({ message: 'Coach ID and level are required.' });
     }
 
+    // step0) register varzik.ir in payping
     // step1) complete the payment using POST /v2/pay/verify api
     // curl -X POST https://api.payping.ir/v2/pay/verify
     // 'H 'Accept: application/json-
@@ -779,7 +781,8 @@ app.post('/user/upload-profile-pic',
             return res.status(400).json({ message: 'No file uploaded' });
         }
 
-        const picUrl = `/uploads/${req.file.filename}`; // Generate URL for the file
+        // https://api.varzik.ir/uploads/images/onion-1728621178139.png
+        const picUrl = `/uploads/images/${req.file.filename}`; // Generate URL for the file
         try {
             const client = await pool.connect();
             await client.query(
@@ -879,7 +882,7 @@ app.post('/coach/upload-profile-pic',
             return res.status(400).json({ message: 'No file uploaded' });
         }
 
-        const picUrl = `/uploads/${req.file.filename}`; // Generate URL for the file
+        const picUrl = `/uploads/images/${req.file.filename}`; // Generate URL for the file
         try {
             const client = await pool.connect();
             await client.query(
