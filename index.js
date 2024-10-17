@@ -14,7 +14,7 @@ const cors = require('cors');  // Import the cors package
 const { toBigInt } = require('ethers');
 // const paypingApi = require("varzikpayping");
 const callbackPayPingUrl = "https://www.postalart.ir" // https://varzik.ir
-
+const { v4: uuidv4 } = require('uuid'); // Import uuid
 
 // Initialize Redis client
 const redisClient = redis.createClient({
@@ -48,8 +48,6 @@ const jwtSecret = 'geDteDd0Ltg2135FJYQ6rjNYHYkGQa70'; // Secret for JWT signing
 const smstoken = "";
 const openai_key = '';
 const paypingKey = "";
-
-
 
 const openai = new OpenAIApi({ apiKey: openai_key });
 
@@ -230,8 +228,6 @@ function ensureCoachAccess(req, res, next) {
     next();
   }
 
-// API to create a new wiki (admin only)
-// API to create a new wiki (admin only)
 app.post('/admin/create-wiki', 
   passport.authenticate('jwt', { session: false }), 
   ensureAdminAccess, 
@@ -552,14 +548,15 @@ app.post('/user/request-coach-plan', passport.authenticate('jwt', { session: fal
     );
 
     if (planPriceResult.rows.length > 0) {
+      const clientRefId = uuidv4(); // Unique client reference ID
       const axios = require('axios');
       let data = JSON.stringify({
         "amount": parseInt(planPriceResult.rows[0].price),
-        "returnUrl": `${callbackPayPingUrl}/paymentStatus?coach_id=${coach_id}&user_id=${user_id}&level=${level}`,
+        "returnUrl": `${callbackPayPingUrl}/PaymentStatus/?coach_id=${coach_id}&user_id=${user_id}&level=${level}`,
         "payerIdentity": req.user.email,
         "payerName": username,
         "description": `خرید برنامه تمرینی در سطح ${level}`,
-        "clientRefId": ""
+        "clientRefId": clientRefId
       });
 
       let config = {
@@ -574,9 +571,30 @@ app.post('/user/request-coach-plan', passport.authenticate('jwt', { session: fal
       };
 
       axios.request(config)
-      .then((response) => {
+      .then(async (response) => {
         console.log(JSON.stringify(response.data));
-        return res.status(200).json({ code: response.data.code}); // front must redirect users to page: https://api.payping.ir/v2/pay/gotoipg/{code}
+
+
+        const paymentUrl = `https://api.payping.ir/v2/pay/gotoipg/${response.data.code}`;
+
+        await client.query(`
+          INSERT INTO users_payments (user_id, coach_id, level, price, refid, cardnumber, cardhashpan, payment_url, client_ref_id)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `, [
+          user_id,
+          coach_id,
+          level,
+          planPriceResult.rows[0].price,
+          '', // refid can be empty initially
+          '', // cardnumber can be empty initially
+          '', // cardhashpan can be empty initially
+          paymentUrl,
+          clientRefId
+        ]);
+
+        // Send the payment URL back to the user
+        return res.status(200).json({ url: paymentUrl });
+
       })
       .catch((error) => {
         console.log(error)
@@ -593,180 +611,219 @@ app.post('/user/request-coach-plan', passport.authenticate('jwt', { session: fal
 
 });
 
-
 // this would gets called by the front end after successful payment
 app.post('/user/get-coach-plan', passport.authenticate('jwt', { session: false }), ensureUserAccess, async (req, res) => {
   
-    const { coach_id, level } = req.body;
-    const user_id = req.user.id;  // Assuming the user is authenticated
-    
+    const { coach_id, level, code, refid, clientrefid, cardnumber, cardhashpan } = req.body;
+    let user_id = req.user.id;
+
     if (!coach_id || !level) {
       return res.status(400).json({ message: 'Coach ID and level are required.' });
     }
+    // if the following api wasn't called till the next 15 mins 
+    // the user will be get paid and the money will be back to the user.
 
-    // step0) register varzik.ir in payping
-    // step1) complete the payment using POST /v2/pay/verify api
-    // curl -X POST https://api.payping.ir/v2/pay/verify
-    // 'H 'Accept: application/json-
-    // 'H 'Authorization: bearer YOUR_TOKEN-
-    // 'H 'Content-Type: application/json-
-    // '} d-
-    // ,"refId": "string"
-    // "amount": int
-
-    // step2) if the status was 200 stor info in users_payments
-    // step3) execute following logics
-    // 
-    // ...
+    try {
+      // Step 2: Fetch the plan price to verify the amount
+      const client = await pool.connect();
+      const planPriceResult = await client.query(
+        'SELECT price FROM coach_plans_prices WHERE level = $1 AND coach_id = $2',
+        [level, coach_id]
+      );
+  
+      if (planPriceResult.rows.length === 0) {
+        return res.status(400).json({ message: 'No plan found for this coach and level.' });
+      }
+  
+      const amount = parseInt(planPriceResult.rows[0].price); // Amount to be verified
+      
+      // Step 3: Verify payment with PayPing
+      let verifyData = JSON.stringify({
+        "refId": refid,
+        "amount": amount
+      });
+  
+      let verifyConfig = {
+        method: 'post',
+        url: 'https://api.payping.ir/v2/pay/verify',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${paypingKey}`
+        },
+        data: verifyData
+      };
+  
+      const verifyResponse = await axios(verifyConfig);
+  
+      // Step 4: Check if the verification was successful
+      if (verifyResponse.status === 200) {
+        const paymentData = verifyResponse.data;
+  
+        // Step 5: Update users_payments table with the transaction details
+        await client.query(`
+          update users_payments set refid = $1, cardnumber = $2, cardhashpan = $3
+          where user_id = $4 and coach_id = $5 and payment_url = $6 and client_ref_id = $7
+        `, [refid, cardnumber, cardhashpan, user_id, coach_id, `https://api.payping.ir/v2/pay/gotoipg/${code}`, clientrefid]);
   
 
-  try {
-    const client = await pool.connect();
-
-      // Fetch workout info from users_workout_info table
-      const workoutQuery = `
-      SELECT weight, age, height, sex, goal, level
-      FROM users_workout_info
-      WHERE user_id = $1
-    `;
-    const workoutResult = await client.query(workoutQuery, [user_id]);
-
-    // Fetch medical info from users_medical_records table
-    const medicalQuery = `
-      SELECT content
-      FROM users_medical_records
-      WHERE user_id = $1
-    `;
-    const medicalResult = await client.query(medicalQuery, [user_id]);
- 
-    // Extracting workout info
-    const workoutInfo = workoutResult.rows[0];
-    const { weight, age, height, sex, goal, level } = workoutInfo;
-
-    // Extracting medical info
-    const medicalInfo = medicalResult.rows[0].content;
-
-    let message = ` من یک برنامه تمرینی بر اساس استایل این مربی میخواهم, اطلاعات من به صورت زیر میباشد همچنین فقط برنامه را در قالب یک جدول با استایل markdown ارائه بده و توضیح اضافه ی دیگری نباشد: `;
-      message += `وزن: ${weight} کیلوگرم, سن: ${age}, قد: ${height} سانتیمتر, جنسیت: ${sex === 'male' ? 'مرد' : 'زن'}, `;
-      message += `هدف: ${goal}, سطح: ${level}. `;
-      message += `سوابق پزشکی: ${medicalInfo}.`;
-
-    // Step 2: Find the assistant for the given coach
-    const assistResult = await client.query('SELECT assist_id FROM gpt_coach_assistant WHERE coach_id = $1', [coach_id]);
-
-    if (assistResult.rows.length === 0) {
-      return res.status(400).json({ message: 'Coach has not trained their bot yet.' });
+        try {
+          const client = await pool.connect();
+      
+            // Fetch workout info from users_workout_info table
+            const workoutQuery = `
+            SELECT weight, age, height, sex, goal, level
+            FROM users_workout_info
+            WHERE user_id = $1
+          `;
+          const workoutResult = await client.query(workoutQuery, [user_id]);
+      
+          // Fetch medical info from users_medical_records table
+          const medicalQuery = `
+            SELECT content
+            FROM users_medical_records
+            WHERE user_id = $1
+          `;
+          const medicalResult = await client.query(medicalQuery, [user_id]);
+       
+          // Extracting workout info
+          const workoutInfo = workoutResult.rows[0];
+          const { weight, age, height, sex, goal, level } = workoutInfo;
+      
+          // Extracting medical info
+          const medicalInfo = medicalResult.rows[0].content;
+      
+          let message = ` من یک برنامه تمرینی بر اساس استایل این مربی میخواهم, اطلاعات من به صورت زیر میباشد همچنین فقط برنامه را در قالب یک جدول با استایل markdown ارائه بده و توضیح اضافه ی دیگری نباشد: `;
+            message += `وزن: ${weight} کیلوگرم, سن: ${age}, قد: ${height} سانتیمتر, جنسیت: ${sex === 'male' ? 'مرد' : 'زن'}, `;
+            message += `هدف: ${goal}, سطح: ${level}. `;
+            message += `سوابق پزشکی: ${medicalInfo}.`;
+      
+          // Step 2: Find the assistant for the given coach
+          const assistResult = await client.query('SELECT assist_id FROM gpt_coach_assistant WHERE coach_id = $1', [coach_id]);
+      
+          if (assistResult.rows.length === 0) {
+            return res.status(400).json({ message: 'Coach has not trained their bot yet.' });
+          }
+      
+          const assist_id = assistResult.rows[0].assist_id;
+      
+          // Step 3: Check if the user already has an existing thread with the coach
+          const thread = await openai.beta.threads.create({
+            messages: [
+              {
+                role: "user",
+                content: message,
+              },
+            ],
+          });
+      
+          let thread_id = thread.id;
+      
+          // Insert the new thread into the gpt_users_plans table
+          await client.query(
+            'INSERT INTO gpt_users_plans (user_id, coach_id, thread_id, message) VALUES ($1, $2, $3, $4)',
+            [user_id, coach_id, thread_id, message]
+          );
+      
+          // Step 5: Create a new run for the existing or new thread
+          const run = await openai.beta.threads.runs.create(
+            thread_id,
+            { assistant_id: assist_id }
+          );
+      
+          console.log("created a new run for thread >", run);
+      
+          const run_id = run.id;
+      
+          // Step 6: Store the run ID in the database
+          await client.query(
+            'UPDATE gpt_users_plans SET run_id = $1 WHERE user_id = $2 AND coach_id = $3',
+            [run_id, user_id, coach_id]
+          );
+      
+          // Step 7: Polling to check the thread run status
+          const intervalTime = 5000; // Poll every 5 seconds
+          const maxAttempts = 12; // Stop polling after 1 minute (12 * 5 seconds)
+          let attempts = 0;
+      
+          const checkThreadStatus = async () => {
+            try {
+              const runResult = await openai.beta.threads.runs.retrieve(
+                thread_id,
+                run_id
+              );
+      
+              console.log("runResult >", runResult);
+      
+              if (runResult.status === 'completed') {
+                // Step 8: Fetch the thread messages when the run is completed
+                const threadMessages = await openai.beta.threads.messages.list(thread_id);
+                const { data } = threadMessages.body;
+      
+                // Step 9: Find the message corresponding to this run
+                const matchingMessage = data.find(message => message.run_id === run_id);
+      
+                if (matchingMessage) {
+                  // Step 10: Store the movement content into the 'movements' field in users_plans table
+                  const movementContent = matchingMessage.content.find(c => c.type === 'text').text.value;
+      
+                  const insertPlanResult = await client.query(
+                    `INSERT INTO users_plans (user_id, coach_id, movements, requested_level, reg_at, updated_at) 
+                     VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
+                     RETURNING id, user_id, coach_id, movements, requested_level, reg_at, updated_at`,
+                    [user_id, coach_id, movementContent, level]
+                  );
+                  
+                  // Retrieve the inserted plan details
+                  const newPlan = insertPlanResult.rows[0];
+      
+                  // Step 11: Store or update the users_coach table with this coach_id and user_id
+                  await client.query(
+                    'INSERT INTO users_coach (user_id, coach_id, choosed_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ' +
+                    'ON CONFLICT (user_id, coach_id) DO UPDATE SET choosed_at = CURRENT_TIMESTAMP',
+                    [user_id, coach_id]
+                  );
+      
+                  // Step 12: Respond to the client with the matched message data
+                  res.status(200).json({ message: 'Plan created', data: newPlan });
+                  clearInterval(polling); // Stop polling
+                } else {
+                  res.status(404).json({ message: 'No matching message found for the run.' });
+                }
+              } else {
+                console.log(`Run status: ${runResult.status}`);
+              }
+      
+              attempts++;
+      
+              if (attempts >= maxAttempts) {
+                clearInterval(polling); // Stop polling after max attempts
+                res.status(408).json({ error: 'Timeout: The operation is taking longer than expected. Please try again later.' });
+              }
+            } catch (err) {
+              console.error('Error checking thread status:', err);
+              clearInterval(polling); // Stop polling in case of error
+              res.status(500).json({ error: 'Failed to check thread status' });
+            }
+          };
+      
+          // Start polling
+          const polling = setInterval(checkThreadStatus, intervalTime);
+      
+        } catch (err) {
+          console.error('Error in requesting coach plan:', err);
+          return res.status(500).json({ error: 'Internal Server Error' });
+        }
+  
+      } else {
+        return res.status(400).json({ message: 'Payment verification failed.' });
+      }
+  
+    } catch (error) {
+      console.error('Error in verifying payment:', error);
+      return res.status(500).json({ error: 'Payment verification or processing failed.' });
     }
 
-    const assist_id = assistResult.rows[0].assist_id;
-
-    // Step 3: Check if the user already has an existing thread with the coach
-    const thread = await openai.beta.threads.create({
-      messages: [
-        {
-          role: "user",
-          content: message,
-        },
-      ],
-    });
-
-    let thread_id = thread.id;
-
-    // Insert the new thread into the gpt_users_plans table
-    await client.query(
-      'INSERT INTO gpt_users_plans (user_id, coach_id, thread_id, message) VALUES ($1, $2, $3, $4)',
-      [user_id, coach_id, thread_id, message]
-    );
-
-    // Step 5: Create a new run for the existing or new thread
-    const run = await openai.beta.threads.runs.create(
-      thread_id,
-      { assistant_id: assist_id }
-    );
-
-    console.log("created a new run for thread >", run);
-
-    const run_id = run.id;
-
-    // Step 6: Store the run ID in the database
-    await client.query(
-      'UPDATE gpt_users_plans SET run_id = $1 WHERE user_id = $2 AND coach_id = $3',
-      [run_id, user_id, coach_id]
-    );
-
-    // Step 7: Polling to check the thread run status
-    const intervalTime = 5000; // Poll every 5 seconds
-    const maxAttempts = 12; // Stop polling after 1 minute (12 * 5 seconds)
-    let attempts = 0;
-
-    const checkThreadStatus = async () => {
-      try {
-        const runResult = await openai.beta.threads.runs.retrieve(
-          thread_id,
-          run_id
-        );
-
-        console.log("runResult >", runResult);
-
-        if (runResult.status === 'completed') {
-          // Step 8: Fetch the thread messages when the run is completed
-          const threadMessages = await openai.beta.threads.messages.list(thread_id);
-          const { data } = threadMessages.body;
-
-          // Step 9: Find the message corresponding to this run
-          const matchingMessage = data.find(message => message.run_id === run_id);
-
-          if (matchingMessage) {
-            // Step 10: Store the movement content into the 'movements' field in users_plans table
-            const movementContent = matchingMessage.content.find(c => c.type === 'text').text.value;
-
-            const insertPlanResult = await client.query(
-              `INSERT INTO users_plans (user_id, coach_id, movements, requested_level, reg_at, updated_at) 
-               VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
-               RETURNING id, user_id, coach_id, movements, requested_level, reg_at, updated_at`,
-              [user_id, coach_id, movementContent, level]
-            );
-            
-            // Retrieve the inserted plan details
-            const newPlan = insertPlanResult.rows[0];
-
-            // Step 11: Store or update the users_coach table with this coach_id and user_id
-            await client.query(
-              'INSERT INTO users_coach (user_id, coach_id, choosed_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ' +
-              'ON CONFLICT (user_id, coach_id) DO UPDATE SET choosed_at = CURRENT_TIMESTAMP',
-              [user_id, coach_id]
-            );
-
-            // Step 12: Respond to the client with the matched message data
-            res.status(200).json({ message: 'Plan created', data: newPlan });
-            clearInterval(polling); // Stop polling
-          } else {
-            res.status(404).json({ message: 'No matching message found for the run.' });
-          }
-        } else {
-          console.log(`Run status: ${runResult.status}`);
-        }
-
-        attempts++;
-
-        if (attempts >= maxAttempts) {
-          clearInterval(polling); // Stop polling after max attempts
-          res.status(408).json({ error: 'Timeout: The operation is taking longer than expected. Please try again later.' });
-        }
-      } catch (err) {
-        console.error('Error checking thread status:', err);
-        clearInterval(polling); // Stop polling in case of error
-        res.status(500).json({ error: 'Failed to check thread status' });
-      }
-    };
-
-    // Start polling
-    const polling = setInterval(checkThreadStatus, intervalTime);
-
-  } catch (err) {
-    console.error('Error in requesting coach plan:', err);
-    return res.status(500).json({ error: 'Internal Server Error' });
-  }
+  
 });
 
 
@@ -1175,19 +1232,17 @@ app.put('/user/update-workout-info', passport.authenticate('jwt', { session: fal
 
 
 // Update Medical Records
-// API to update or insert medical records
 app.put('/user/update-medical-record', passport.authenticate('jwt', { session: false }), ensureUserAccess, async (req, res) => {
   const { content } = req.body;
 
   try {
     const client = await pool.connect();
     
-    // Use INSERT ON CONFLICT to either insert or update the user's medical record
+    // Update the user's medical record
     await client.query(`
-      INSERT INTO users_medical_records (user_id, content, updated_at)
-      VALUES ($1, $2, CURRENT_TIMESTAMP)
-      ON CONFLICT (user_id)
-      DO UPDATE SET content = EXCLUDED.content, updated_at = CURRENT_TIMESTAMP
+      UPDATE users_medical_records
+      SET content = $2, updated_at = CURRENT_TIMESTAMP
+      WHERE user_id = $1
     `, [req.user.id, content]);
 
     client.release();
@@ -1198,6 +1253,7 @@ app.put('/user/update-medical-record', passport.authenticate('jwt', { session: f
     return res.status(500).json({ error: 'Failed to update medical record' });
   }
 });
+
 
 // Login and Register (combined)
 app.post('/login', async (req, res) => {
